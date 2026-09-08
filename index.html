@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>지렁이 게임</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Dodum&display=swap");
+
+      :root {
+        color-scheme: light;
+        --ink: #1f3425;
+        --leaf: #326645;
+        --moss: #88a649;
+        --soil: #f2d8a0;
+        --paper: #fff8e7;
+        --tomato: #df4d37;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        align-items: center;
+        background-color: #b6d38a;
+        background-image: radial-gradient(#90b96d 1px, transparent 1px);
+        background-size: 18px 18px;
+        color: var(--ink);
+        display: flex;
+        font-family: "Gowun Dodum", sans-serif;
+        justify-content: center;
+        margin: 0;
+        min-height: 100vh;
+        padding: 24px;
+      }
+
+      main {
+        background: var(--paper);
+        border: 4px solid var(--ink);
+        box-shadow: 9px 9px 0 rgba(31, 52, 37, 0.3);
+        max-width: 540px;
+        padding: 20px;
+        width: min(100%, 540px);
+      }
+
+      header {
+        align-items: center;
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 16px;
+      }
+
+      h1 {
+        font-family: "Black Han Sans", sans-serif;
+        font-size: 28px;
+        font-weight: 400;
+        margin: 0;
+      }
+
+      .score {
+        background: var(--soil);
+        border: 2px solid var(--ink);
+        font-size: 15px;
+        padding: 6px 10px;
+      }
+
+      canvas {
+        background: #d2b47d;
+        border: 4px solid var(--ink);
+        display: block;
+        image-rendering: pixelated;
+        max-width: 100%;
+        width: 100%;
+      }
+
+      .bottom {
+        align-items: center;
+        display: flex;
+        gap: 12px;
+        justify-content: space-between;
+        margin-top: 16px;
+      }
+
+      p { font-size: 13px; margin: 0; }
+
+      button {
+        background: var(--tomato);
+        border: 2px solid var(--ink);
+        box-shadow: 3px 3px 0 var(--ink);
+        color: white;
+        cursor: pointer;
+        font-family: "Gowun Dodum", sans-serif;
+        font-size: 14px;
+        font-weight: bold;
+        padding: 8px 13px;
+      }
+
+      button:active { box-shadow: none; transform: translate(3px, 3px); }
+
+      @media (max-width: 460px) {
+        body { padding: 12px; }
+        main { padding: 14px; }
+        .bottom { align-items: flex-start; flex-direction: column; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>지렁이 게임</h1>
+        <div class="score">점수: <strong id="score">0</strong></div>
+      </header>
+      <canvas id="game" width="480" height="480" aria-label="지렁이 게임 화면"></canvas>
+      <div class="bottom">
+        <p id="message">방향키 또는 WASD로 움직이세요.</p>
+        <button id="restart" type="button">다시 하기</button>
+      </div>
+    </main>
+    <script>
+      const canvas = document.querySelector("#game");
+      const context = canvas.getContext("2d");
+      const scoreElement = document.querySelector("#score");
+      const messageElement = document.querySelector("#message");
+      const restartButton = document.querySelector("#restart");
+      const tileSize = 24;
+      const boardSize = canvas.width / tileSize;
+      const directions = {
+        ArrowUp: { x: 0, y: -1 }, w: { x: 0, y: -1 },
+        ArrowDown: { x: 0, y: 1 }, s: { x: 0, y: 1 },
+        ArrowLeft: { x: -1, y: 0 }, a: { x: -1, y: 0 },
+        ArrowRight: { x: 1, y: 0 }, d: { x: 1, y: 0 }
+      };
+      let worm;
+      let direction;
+      let nextDirection;
+      let apple;
+      let score;
+      let timer;
+      let isOver;
+
+      function randomApple() {
+        let position;
+        do {
+          position = {
+            x: Math.floor(Math.random() * boardSize),
+            y: Math.floor(Math.random() * boardSize)
+          };
+        } while (worm.some(segment => segment.x === position.x && segment.y === position.y));
+        return position;
+      }
+
+      function drawTile(position, color, inset = 2) {
+        context.fillStyle = color;
+        context.fillRect(position.x * tileSize + inset, position.y * tileSize + inset, tileSize - inset * 2, tileSize - inset * 2);
+      }
+
+      function draw() {
+        context.fillStyle = "#d2b47d";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.strokeStyle = "rgba(96, 68, 37, 0.18)";
+        context.lineWidth = 1;
+        for (let line = 0; line <= boardSize; line += 1) {
+          context.beginPath();
+          context.moveTo(line * tileSize, 0);
+          context.lineTo(line * tileSize, canvas.height);
+          context.moveTo(0, line * tileSize);
+          context.lineTo(canvas.width, line * tileSize);
+          context.stroke();
+        }
+        drawTile(apple, "#df4d37", 5);
+        worm.forEach((segment, index) => drawTile(segment, index === 0 ? "#1f673d" : "#4d904f"));
+        const head = worm[0];
+        context.fillStyle = "#fff8e7";
+        context.fillRect(head.x * tileSize + 7, head.y * tileSize + 7, 3, 3);
+        context.fillRect(head.x * tileSize + 14, head.y * tileSize + 7, 3, 3);
+      }
+
+      function endGame(message) {
+        isOver = true;
+        clearInterval(timer);
+        messageElement.textContent = message;
+      }
+
+      function move() {
+        direction = nextDirection;
+        const head = { x: worm[0].x + direction.x, y: worm[0].y + direction.y };
+        const hitWall = head.x < 0 || head.x >= boardSize || head.y < 0 || head.y >= boardSize;
+        const hitWorm = worm.some(segment => segment.x === head.x && segment.y === head.y);
+        if (hitWorm) return endGame("몸에 부딪쳤어요!");
+        if (hitWall) return endGame("앗, 지렁이가 흙길을 벗어났어요!");
+        worm.unshift(head);
+        if (head.x === apple.x && head.y === apple.y) {
+          score += 1;
+          scoreElement.textContent = score;
+          apple = randomApple();
+        } else {
+          worm.pop();
+        }
+        draw();
+      }
+
+      function startGame() {
+        clearInterval(timer);
+        worm = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
+        direction = { x: 1, y: 0 };
+        nextDirection = direction;
+        score = 0;
+        isOver = false;
+        apple = randomApple();
+        scoreElement.textContent = score;
+        messageElement.textContent = "방향키 또는 WASD로 움직이세요.";
+        draw();
+        timer = setInterval(move, 130);
+      }
+
+      window.addEventListener("keydown", event => {
+        const selected = directions[event.key];
+        if (!selected || isOver) return;
+        event.preventDefault();
+        if (selected.x + direction.x !== 0 || selected.y + direction.y !== 0) {
+          nextDirection = selected;
+        }
+      });
+
+      restartButton.addEventListener("click", startGame);
+      startGame();
+    </script>
+  </body>
+</html>

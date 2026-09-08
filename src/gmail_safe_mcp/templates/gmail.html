@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}메일 정리 | Gmail Safe{% endblock %}
+{% block content %}
+<section class="page-heading">
+  <div>
+    <p class="eyebrow">GMAIL SEARCH & TRASH</p>
+    <h1>메일 정리</h1>
+    <p class="subtext">본문을 읽지 않고 발신자, 제목, 날짜만 검색합니다.</p>
+  </div>
+  <div class="connection" data-connected="{{ 'true' if connected else 'false' }}">
+    <span class="status-dot"></span>
+    <span id="connectionText">{{ 'Gmail 연결됨' if connected else 'Gmail 연결 필요' }}</span>
+    {% if connected %}
+    <button id="disconnectButton" class="button secondary" type="button">로그아웃</button>
+    {% else %}
+    <button id="connectButton" class="button secondary" type="button">로그인</button>
+    {% endif %}
+  </div>
+</section>
+
+<section class="search-panel" aria-labelledby="searchTitle">
+  <h2 id="searchTitle">검색 조건</h2>
+  <form id="searchForm">
+    <label>
+      <span>키워드</span>
+      <input id="keyword" name="keyword" type="search" maxlength="200" placeholder="예: 영수증, 뉴스레터">
+    </label>
+    <label>
+      <span>발송인 이메일</span>
+      <input id="sender" name="sender" type="email" placeholder="sender@example.com">
+    </label>
+    <button class="button primary" type="submit">메일 확인</button>
+  </form>
+  <p id="notice" class="notice" role="status" aria-live="polite"></p>
+</section>
+
+<section id="resultsSection" class="results" hidden>
+  <div class="results-head">
+    <div>
+      <h2>검색 결과</h2>
+      <p id="resultCount"></p>
+    </div>
+    <button id="trashButton" class="button danger" type="button" disabled>선택 항목 휴지통으로</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th><input id="selectAll" type="checkbox" aria-label="전체 선택"></th>
+          <th>발송인</th>
+          <th>제목</th>
+          <th>날짜</th>
+        </tr>
+      </thead>
+      <tbody id="resultBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<dialog id="confirmDialog">
+  <form method="dialog" id="confirmForm">
+    <h2>휴지통으로 이동할까요?</h2>
+    <p><strong id="selectedCount">0개</strong> 메일을 이동합니다. Gmail 휴지통에서 복구할 수 있습니다.</p>
+    <label>
+      <span>확인을 위해 <code id="confirmPhrase">TRASH 0</code> 입력</span>
+      <input id="confirmation" autocomplete="off" required>
+    </label>
+    <div class="dialog-actions">
+      <button class="button secondary" value="cancel">취소</button>
+      <button id="confirmTrash" class="button danger" value="default">휴지통으로 이동</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="setupDialog">
+  <form id="setupForm">
+    <h2>Google Gmail 연결 설정</h2>
+    <ol class="setup-steps">
+      <li><a href="https://console.cloud.google.com/apis/library/gmail.googleapis.com" target="_blank" rel="noreferrer">Google Cloud Console</a>에서 Gmail API를 활성화합니다.</li>
+      <li>OAuth 동의 화면에 본인 Gmail을 테스트 사용자로 추가합니다.</li>
+      <li>OAuth 클라이언트를 <strong>데스크톱 앱</strong> 유형으로 만들고 JSON을 다운로드합니다.</li>
+    </ol>
+    <label class="file-picker">
+      <span>다운로드한 OAuth JSON</span>
+      <input id="oauthClient" name="oauth_client" type="file" accept="application/json,.json" required>
+    </label>
+    <p id="setupNotice" class="notice" role="status"></p>
+    <div class="dialog-actions">
+      <button id="cancelSetup" class="button secondary" type="button">취소</button>
+      <button class="button primary" type="submit">등록 후 로그인</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="logoutDialog">
+  <form method="dialog" id="logoutForm">
+    <h2>로그아웃 할까요?</h2>
+    <p>이 Mac의 Keychain에 저장된 Gmail 로그인 정보가 제거됩니다.</p>
+    <div class="dialog-actions">
+      <button class="button secondary" value="cancel">취소</button>
+      <button class="button danger" value="default">확인</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='app.js') }}"></script>{% endblock %}

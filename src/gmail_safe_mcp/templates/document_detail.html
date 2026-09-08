@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}{{ document.original_name }} | Gmail Safe{% endblock %}
+{% block content %}
+<section class="page-heading compact">
+  <div>
+    <p class="eyebrow">SAVED DOCUMENT</p>
+    <h1>{{ document.original_name }}</h1>
+    <p class="subtext">저장된 원본과 Copilot 생성 정보를 확인합니다.</p>
+  </div>
+  <a class="button secondary" href="{{ url_for('documents_page') }}">목록으로</a>
+</section>
+
+<section class="detail-workspace">
+  <section class="original-preview" aria-label="원본 문서">
+    <div class="panel-title"><h2>원본</h2><span>{{ document.mime_type }}</span></div>
+    {% if document.mime_type == 'application/pdf' %}
+    <iframe src="{{ url_for('saved_document_file', document_id=document.id) }}" title="원본 PDF 미리보기"></iframe>
+    {% else %}
+    <img src="{{ url_for('saved_document_file', document_id=document.id) }}" alt="{{ document.original_name }} 원본">
+    {% endif %}
+    <a class="button secondary detail-original-link" href="{{ url_for('saved_document_file', document_id=document.id) }}" target="_blank">원본</a>
+  </section>
+  <section class="detail-info" aria-label="추출 내용, 요약 및 META">
+    <div class="panel-title"><h2>추출 내용</h2><span>Copilot Vision</span></div>
+    <section>
+      <h3>기본 정보</h3>
+      <div class="key-value-table detail-content-table">
+        {% for key, value in document.extracted.items() if key not in ['raw_text', 'summary'] %}
+        <div><strong>{{ key }}</strong><span>{{ value|join(', ') if value is iterable and value is not string else value }}</span></div>
+        {% endfor %}
+      </div>
+    </section>
+    <section class="detail-summary">
+      <h3>요약</h3>
+      <p>{{ document.extracted.get('summary', '요약이 저장되지 않았습니다.') }}</p>
+    </section>
+    <section>
+      <h3>내용 JSON</h3>
+      <textarea id="detailExtractedJson" spellcheck="false">{{ document.extracted|pretty_json }}</textarea>
+      <button id="saveExtracted" class="button primary detail-save-button" type="button">내용 JSON 저장</button>
+    </section>
+    <section>
+      <h3>META JSON</h3>
+      <textarea id="detailMetaJson" spellcheck="false">{{ document.meta|pretty_json if document.meta else '{}' }}</textarea>
+      <button id="saveMeta" class="button primary detail-save-button" type="button">META 저장</button>
+      <p id="detailNotice" class="notice" role="status"></p>
+    </section>
+  </section>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  const saveExtractedButton = document.querySelector("#saveExtracted");
+  const saveMetaButton = document.querySelector("#saveMeta");
+  const extractedEditor = document.querySelector("#detailExtractedJson");
+  const metaEditor = document.querySelector("#detailMetaJson");
+  const detailNotice = document.querySelector("#detailNotice");
+  const basePath = document.documentElement.dataset.basePath || "";
+  const apiPath = path => `${basePath}${path}`;
+  async function saveJson(url, body, button, successMessage) {
+    try {
+      button.disabled = true;
+      const response = await fetch(url, {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "저장에 실패했습니다.");
+      detailNotice.textContent = successMessage;
+      detailNotice.classList.remove("error");
+    } catch (error) {
+      detailNotice.textContent = error instanceof SyntaxError ? "JSON 형식을 확인하세요." : error.message;
+      detailNotice.classList.add("error");
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  saveExtractedButton.addEventListener("click", async () => {
+    try {
+      const extracted = JSON.parse(extractedEditor.value);
+      if (!extracted || Array.isArray(extracted) || typeof extracted !== "object") throw new Error("내용 JSON 객체를 입력하세요.");
+      await saveJson(apiPath("/api/documents/{{ document.id }}/extracted"), { extracted }, saveExtractedButton, "내용 JSON이 저장되었습니다.");
+    } catch (error) {
+      detailNotice.textContent = error instanceof SyntaxError ? "JSON 형식을 확인하세요." : error.message;
+      detailNotice.classList.add("error");
+    }
+  });
+
+  saveMetaButton.addEventListener("click", async () => {
+    try {
+      const meta = JSON.parse(metaEditor.value);
+      if (!meta || Array.isArray(meta) || typeof meta !== "object") throw new Error("META JSON 객체를 입력하세요.");
+      await saveJson(apiPath("/api/documents/{{ document.id }}/meta"), { meta }, saveMetaButton, "META JSON이 저장되었습니다.");
+    } catch (error) {
+      detailNotice.textContent = error instanceof SyntaxError ? "JSON 형식을 확인하세요." : error.message;
+      detailNotice.classList.add("error");
+    }
+  });
+</script>
+{% endblock %}

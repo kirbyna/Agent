@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: rag-agent
+    runtime: python
+    plan: free
+    buildCommand: pip install .
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 180 gmail_safe_mcp.web:create_app()
+    envVars:
+      - key: APP_BASE_PATH
+        value: /agent
+      - key: DOCUMENT_ONLY
+        value: "1"
+      - key: COPILOT_GITHUB_TOKEN
+        sync: false

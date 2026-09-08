@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}문서 검색 | Gmail Safe{% endblock %}
+{% block content %}
+<section class="page-heading compact">
+  <div>
+    <p class="eyebrow">BM25 DOCUMENT SEARCH</p>
+    <h1>문서 검색</h1>
+    <p class="subtext">OCR 내용과 요약, META를 BM25로 검색합니다.</p>
+  </div>
+  <span class="local-badge">BM25 · KEYWORD</span>
+</section>
+<section class="search-panel document-search-panel" aria-labelledby="documentSearchTitle">
+  <h2 id="documentSearchTitle">검색어</h2>
+  <form id="documentSearchForm">
+    <label><span>문서 내용 검색</span><input id="documentQuery" type="search" maxlength="200" placeholder="예: 보험금 지급 절차" required></label>
+    <button class="button primary" type="submit">검색</button>
+  </form>
+  <p id="documentSearchNotice" class="notice" role="status" aria-live="polite"></p>
+</section>
+<section id="documentResults" class="results" hidden>
+  <div class="results-head"><div><h2>검색 결과</h2><p id="documentResultCount"></p></div></div>
+  <div id="documentResultList" class="search-result-list"></div>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='document-search.js') }}"></script>{% endblock %}

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ko" data-base-path="{{ request.script_root }}">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Gmail Safe{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="{{ url_for('gmail_page') }}" aria-label="KT Document Safe 홈">
+        <span class="brand-mark">KT</span>
+        <span>Document Safe</span>
+      </a>
+      <nav aria-label="주 메뉴">
+        <a class="nav-link {% if request.endpoint == 'documents_page' %}active{% endif %}" href="{{ url_for('documents_page') }}">문서 추출</a>
+        <a class="nav-link {% if request.endpoint == 'document_search_page' %}active{% endif %}" href="{{ url_for('document_search_page') }}">문서 검색</a>
+      </nav>
+    </header>
+    <main>{% block content %}{% endblock %}</main>
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Agent 관리 | Gmail Safe{% endblock %}
+{% block content %}
+<section class="page-heading compact">
+  <div>
+    <p class="eyebrow">LOCAL AGENTS</p>
+    <h1>Agent 관리</h1>
+    <p class="subtext">이 Mac의 VS Code에 등록된 Agent를 확인합니다.</p>
+  </div>
+  <span class="agent-count">{{ agents|length }}개 등록</span>
+</section>
+
+<section class="agent-list" aria-label="등록된 Agent">
+  {% for agent in agents %}
+  <article class="agent-row">
+    <div class="agent-icon">{{ agent.name[0] }}</div>
+    <div class="agent-copy">
+      <div class="agent-title">
+        <h2>{{ agent.name }}</h2>
+        <span class="scope">{{ agent.scope }}</span>
+      </div>
+      <p>{{ agent.description }}</p>
+      <span class="path">{{ agent.path }}</span>
+    </div>
+    {% if agent.action in ['gmail', 'documents'] %}
+    <a class="button primary" href="{{ '/' if agent.action == 'gmail' else '/documents' }}">실행</a>
+    {% else %}
+    <button class="button secondary" type="button" disabled>VS Code에서 실행</button>
+    {% endif %}
+  </article>
+  {% else %}
+  <div class="empty-state">등록된 Agent가 없습니다.</div>
+  {% endfor %}
+</section>
+{% endblock %}

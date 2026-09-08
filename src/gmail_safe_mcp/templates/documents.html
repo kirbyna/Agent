@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}문서 정보 추출 | Gmail Safe{% endblock %}
+{% block content %}
+<section class="page-heading compact">
+  <div>
+    <p class="eyebrow">VISION DOCUMENT OCR</p>
+    <h1>문서 정보 추출</h1>
+    <p class="subtext">Copilot Vision 모델로 이미지를 분석해 주요 정보를 JSON으로 정리합니다.</p>
+  </div>
+  <button id="copilotTokenButton" class="button secondary" type="button">{{ 'Copilot 연결됨' if copilot_token_set else 'Copilot PAT 설정' }}</button>
+</section>
+
+<section class="document-tool">
+  <form id="documentForm" class="upload-pane">
+    <label class="drop-zone" for="documentFile">
+      <strong>문서를 선택하세요</strong>
+      <span>PDF, JPG, JPEG, PNG · 최대 15MB · PDF 최대 10페이지</span>
+      <input id="documentFile" name="document" type="file" accept="application/pdf,image/jpeg,image/png" required>
+    </label>
+    <button class="button primary" type="submit">Vision OCR 실행</button>
+    <p id="documentNotice" class="notice progress-status" role="status" aria-live="polite"></p>
+  </form>
+
+  <div id="extractionWorkspace" class="extraction-workspace" hidden>
+    <section class="original-preview" aria-label="원본 문서">
+      <div class="panel-title"><h2>원본</h2><span id="originalName"></span></div>
+      <iframe id="pdfPreview" title="원본 PDF 미리보기" hidden></iframe>
+      <img id="imagePreview" alt="업로드한 원본 이미지" hidden>
+    </section>
+    <section class="extracted-pane" aria-label="추출 정보">
+      <div class="panel-title"><h2>기본 추출 정보</h2><span>Copilot Vision OCR</span></div>
+      <div id="extractedTable" class="key-value-table"></div>
+      <p class="generated-label">요약 및 META는 OCR 완료 후 자동 생성됩니다.</p>
+      <div id="enrichmentResult" class="enrichment-result" hidden>
+        <section>
+          <h3>요약</h3>
+          <p id="summaryText"></p>
+        </section>
+        <section>
+          <h3>META</h3>
+          <div id="metaTable" class="key-value-table"></div>
+        </section>
+      </div>
+      <label class="json-editor">
+        <span>전체 JSON 편집</span>
+        <textarea id="extractedJson" spellcheck="false"></textarea>
+      </label>
+      <button id="saveDocument" class="button primary" type="button">DB에 저장</button>
+    </section>
+  </div>
+</section>
+
+<section class="saved-documents">
+  <div class="results-head"><div><h2>저장된 문서</h2><p>{{ documents|length }}개 문서</p></div></div>
+  <div class="document-list">
+    {% for document in documents %}
+    <article class="document-row">
+      <div class="document-main">
+        <strong><a class="document-link" href="{{ url_for('document_detail_page', document_id=document.id) }}">{{ document.original_name }}</a></strong>
+        <span class="document-summary">{{ document.extracted.get('summary', '요약이 저장되지 않았습니다.') }}</span>
+      </div>
+      <a class="button secondary" href="{{ url_for('saved_document_file', document_id=document.id) }}" target="_blank">원본</a>
+      <button class="button danger delete-document" type="button" data-document-id="{{ document.id }}" data-document-name="{{ document.original_name }}">삭제</button>
+      <a class="button secondary" href="{{ url_for('document_detail_page', document_id=document.id) }}">상세 보기</a>
+    </article>
+    {% else %}<div class="empty-state">저장된 문서가 없습니다.</div>{% endfor %}
+  </div>
+</section>
+
+<dialog id="copilotTokenDialog">
+  <form id="copilotTokenForm">
+    <h2>GitHub Copilot 연결</h2>
+    <p>Vision 모델 호출에 사용할 Fine-grained GitHub Copilot PAT를 입력하세요. 토큰은 macOS Keychain에만 저장됩니다.</p>
+    <label><span>GitHub Copilot PAT</span><input id="copilotToken" type="password" autocomplete="off" required></label>
+    <p id="copilotTokenNotice" class="notice" role="status"></p>
+    <div class="dialog-actions">
+      <button id="cancelCopilotToken" class="button secondary" type="button">취소</button>
+      <button class="button primary" type="submit">Keychain에 저장</button>
+    </div>
+  </form>
+</dialog>
+
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='documents.js') }}"></script>{% endblock %}
