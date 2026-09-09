@@ -62,7 +62,9 @@ def _agent_metadata(path: Path, scope: str) -> dict[str, str]:
         "action": (
             "gmail"
             if path.name == "gmail-cleaner.agent.md"
-            else "documents" if path.name == "document-vision.agent.md" else "none"
+            else "documents" if path.name == "document-vision.agent.md"
+            else "search" if path.name == "document-search.agent.md"
+            else "none"
         ),
     }
 
@@ -72,7 +74,7 @@ def _list_agents() -> list[dict[str, str]]:
     for directory, scope in ((USER_AGENTS_DIR, "사용자"), (WORKSPACE_AGENTS_DIR, "프로젝트")):
         if directory.is_dir():
             agents.extend(_agent_metadata(path, scope) for path in sorted(directory.glob("*.agent.md")))
-    return agents
+    return [agent for agent in agents if agent["action"] != "gmail"]
 
 
 def _save_oauth_client(uploaded_file: Any) -> Path:

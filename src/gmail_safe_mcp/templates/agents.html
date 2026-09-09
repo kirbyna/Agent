@@ -22,8 +22,10 @@
       <p>{{ agent.description }}</p>
       <span class="path">{{ agent.path }}</span>
     </div>
-    {% if agent.action in ['gmail', 'documents'] %}
-    <a class="button primary" href="{{ '/' if agent.action == 'gmail' else '/documents' }}">실행</a>
+    {% if agent.action == 'documents' %}
+    <a class="button primary" href="{{ url_for('documents_page') }}">실행</a>
+    {% elif agent.action == 'search' %}
+    <a class="button primary" href="{{ url_for('document_search_page') }}">실행</a>
     {% else %}
     <button class="button secondary" type="button" disabled>VS Code에서 실행</button>
     {% endif %}

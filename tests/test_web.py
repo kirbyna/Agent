@@ -66,10 +66,17 @@ class GmailWebTests(unittest.TestCase):
         self.assertEqual(200, response.status_code)
         trash.assert_called_once_with("token", ["m1"], "TRASH 1")
 
-    def test_agents_page_lists_gmail_cleaner(self):
+    def test_agents_page_hides_gmail_cleaner(self):
         response = self.client.get("/agents")
         self.assertEqual(200, response.status_code)
-        self.assertIn(b"Gmail Cleaner", response.data)
+        self.assertNotIn(b"Gmail Cleaner", response.data)
+
+    def test_agents_page_lists_document_agents_with_run_links(self):
+        html = self.client.get("/agents").get_data(as_text=True)
+        self.assertIn("문서 정보 추출", html)
+        self.assertIn("비정형 데이터 검색", html)
+        self.assertIn('href="/documents"', html)
+        self.assertIn('href="/document-search"', html)
 
     @patch("gmail_safe_mcp.web.documents.list_documents", return_value=[])
     @patch("gmail_safe_mcp.web.vision.has_copilot_token", return_value=False)
