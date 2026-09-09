@@ -89,6 +89,7 @@ code { background: var(--success-soft); color: var(--success); padding: 2px 5px;
 .drop-zone span { color: var(--muted); font-size: 13px; }
 .drop-zone input { margin-top: 8px; max-width: 100%; }
 .extraction-workspace { display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr) minmax(340px, .8fr); margin-top: 18px; }
+.extraction-workspace[hidden] { display: none; }
 .original-preview, .extracted-pane { background: var(--surface); border: 1px solid var(--line); min-width: 0; padding: 18px; }
 .panel-title { align-items: center; display: flex; justify-content: space-between; margin-bottom: 14px; }
 .panel-title span { color: var(--muted); font-size: 12px; }

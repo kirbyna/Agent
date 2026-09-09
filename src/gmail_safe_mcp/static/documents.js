@@ -6,6 +6,7 @@ const extractedTable = document.querySelector("#extractedTable");
 const enrichmentResult = document.querySelector("#enrichmentResult");
 const metaTable = document.querySelector("#metaTable");
 const copilotTokenDialog = document.querySelector("#copilotTokenDialog");
+const securityBlockedDialog = document.querySelector("#securityBlockedDialog");
 const basePath = document.documentElement.dataset.basePath || "";
 const apiPath = path => `${basePath}${path}`;
 let draft = null;
@@ -67,6 +68,17 @@ async function responseJson(response) {
   return data;
 }
 
+document.querySelector("#documentFile").addEventListener("click", event => {
+  event.preventDefault();
+  securityBlockedDialog.showModal();
+});
+
+documentForm.addEventListener("submit", event => {
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  securityBlockedDialog.showModal();
+});
+
 documentForm.addEventListener("submit", async event => {  event.preventDefault();
   const formData = new FormData(documentForm);
   setDocumentNotice("Vision OCR로 문서를 분석하고 있습니다.");
@@ -107,21 +119,6 @@ documentForm.addEventListener("submit", async event => {  event.preventDefault()
   }
 });
 
-const uploadOnlyForm = document.querySelector("#uploadOnlyForm");
-const uploadOnlyNotice = document.querySelector("#uploadOnlyNotice");
-uploadOnlyForm.addEventListener("submit", async event => {
-  event.preventDefault();
-  const formData = new FormData(uploadOnlyForm);
-  uploadOnlyNotice.textContent = "원본 파일을 저장하고 있습니다.";
-  uploadOnlyNotice.classList.remove("error");
-  try {
-    await responseJson(await fetch(apiPath("/api/documents/upload-only"), { method: "POST", body: formData }));
-    window.location.reload();
-  } catch (error) {
-    uploadOnlyNotice.textContent = error.message;
-    uploadOnlyNotice.classList.add("error");
-  }
-});
 
 jsonEditor.addEventListener("input", () => {
   try { renderBasicTable(JSON.parse(jsonEditor.value)); } catch { /* Keep the last valid table while editing. */ }

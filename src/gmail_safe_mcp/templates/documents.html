@@ -21,16 +21,6 @@
     <p id="documentNotice" class="notice progress-status" role="status" aria-live="polite"></p>
   </form>
 
-  <form id="uploadOnlyForm" class="upload-pane">
-    <label class="drop-zone" for="uploadOnlyFile">
-      <strong>OCR 없이 원본만 저장</strong>
-      <span>PDF, JPG, JPEG, PNG · 최대 15MB · 페이지 수 제한 없음</span>
-      <input id="uploadOnlyFile" name="document" type="file" accept="application/pdf,image/jpeg,image/png" required>
-    </label>
-    <button class="button secondary" type="submit">원본만 저장</button>
-    <p id="uploadOnlyNotice" class="notice" role="status" aria-live="polite"></p>
-  </form>
-
   <div id="extractionWorkspace" class="extraction-workspace" hidden>
     <section class="original-preview" aria-label="원본 문서">
       <div class="panel-title"><h2>원본</h2><span id="originalName"></span></div>
@@ -76,6 +66,16 @@
     {% else %}<div class="empty-state">저장된 문서가 없습니다.</div>{% endfor %}
   </div>
 </section>
+
+<dialog id="securityBlockedDialog">
+  <form method="dialog">
+    <h2>기능 일시 중지</h2>
+    <p>보안 문제로 기능을 일시 막아두었습니다. 관리자 확인 후 다시 사용할 수 있습니다.</p>
+    <div class="dialog-actions">
+      <button class="button primary" type="submit">확인</button>
+    </div>
+  </form>
+</dialog>
 
 <dialog id="copilotTokenDialog">
   <form id="copilotTokenForm">
