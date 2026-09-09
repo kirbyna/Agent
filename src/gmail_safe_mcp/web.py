@@ -198,6 +198,20 @@ def create_app() -> Flask:
         except (ValueError, FileNotFoundError):
             return "Not found", 404
 
+    @app.post("/api/documents/upload-only")
+    def upload_document_without_ocr() -> tuple[Any, int] | Any:
+        upload = request.files.get("document")
+        try:
+            staged = documents.stage_upload(upload.filename if upload else "", upload.stream if upload else None)
+            document_id = documents.save_document(
+                staged["draft_id"],
+                staged["original_name"],
+                {"summary": "OCR 없이 원본 파일만 저장되었습니다."},
+            )
+            return jsonify({"id": document_id, "status": "saved"})
+        except (ValueError, FileNotFoundError) as error:
+            return jsonify({"error": str(error)}), 400
+
     @app.post("/api/documents")
     def save_document() -> tuple[Any, int] | Any:
         data = request.get_json(silent=True) or {}

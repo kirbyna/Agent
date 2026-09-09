@@ -21,6 +21,16 @@
     <p id="documentNotice" class="notice progress-status" role="status" aria-live="polite"></p>
   </form>
 
+  <form id="uploadOnlyForm" class="upload-pane">
+    <label class="drop-zone" for="uploadOnlyFile">
+      <strong>OCR 없이 원본만 저장</strong>
+      <span>PDF, JPG, JPEG, PNG · 최대 15MB · 페이지 수 제한 없음</span>
+      <input id="uploadOnlyFile" name="document" type="file" accept="application/pdf,image/jpeg,image/png" required>
+    </label>
+    <button class="button secondary" type="submit">원본만 저장</button>
+    <p id="uploadOnlyNotice" class="notice" role="status" aria-live="polite"></p>
+  </form>
+
   <div id="extractionWorkspace" class="extraction-workspace" hidden>
     <section class="original-preview" aria-label="원본 문서">
       <div class="panel-title"><h2>원본</h2><span id="originalName"></span></div>

@@ -102,7 +102,7 @@ def extract_document(path: Path) -> dict[str, Any]:
             image_paths = []
             for index in range(len(pdf)):
                 page_path = Path(directory) / f"page-{index + 1}.png"
-                pdf[index].render(scale=2).to_pil().save(page_path, format="PNG")
+                pdf[index].render(scale=1.5).to_pil().save(page_path, format="PNG")
                 image_paths.append(page_path)
             prompt = (
                 "Use Copilot Vision to OCR all pages of this PDF in page order and extract the important information. "

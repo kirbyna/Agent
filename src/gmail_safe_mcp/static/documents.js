@@ -67,8 +67,7 @@ async function responseJson(response) {
   return data;
 }
 
-documentForm.addEventListener("submit", async event => {
-  event.preventDefault();
+documentForm.addEventListener("submit", async event => {  event.preventDefault();
   const formData = new FormData(documentForm);
   setDocumentNotice("Vision OCR로 문서를 분석하고 있습니다.");
   workspace.hidden = true;
@@ -105,6 +104,22 @@ documentForm.addEventListener("submit", async event => {
     setDocumentNotice("OCR, 요약 및 META 생성이 완료되었습니다. 내용을 확인한 뒤 저장하세요.", false, "complete");
   } catch (error) {
     setDocumentNotice(error.message, true);
+  }
+});
+
+const uploadOnlyForm = document.querySelector("#uploadOnlyForm");
+const uploadOnlyNotice = document.querySelector("#uploadOnlyNotice");
+uploadOnlyForm.addEventListener("submit", async event => {
+  event.preventDefault();
+  const formData = new FormData(uploadOnlyForm);
+  uploadOnlyNotice.textContent = "원본 파일을 저장하고 있습니다.";
+  uploadOnlyNotice.classList.remove("error");
+  try {
+    await responseJson(await fetch(apiPath("/api/documents/upload-only"), { method: "POST", body: formData }));
+    window.location.reload();
+  } catch (error) {
+    uploadOnlyNotice.textContent = error.message;
+    uploadOnlyNotice.classList.add("error");
   }
 });
 
