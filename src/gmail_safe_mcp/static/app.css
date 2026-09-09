@@ -130,7 +130,8 @@ code { background: var(--success-soft); color: var(--success); padding: 2px 5px;
 .search-result-list { background: var(--surface); border: 1px solid var(--line); }
 .search-result-row { border-bottom: 1px solid var(--line); padding: 18px 20px; }
 .search-result-row:last-child { border-bottom: 0; }
-.search-result-row h3 { font-size: 16px; margin: 0; }
+.search-result-row h3 { font-size: 20px; margin: 0; }
+.search-result-row p strong { color: var(--ink); font-weight: 700; }
 .search-result-row h3 a { color: var(--ink); text-decoration: none; }
 .search-result-row h3 a:hover { color: var(--brand-red); text-decoration: underline; }
 .search-result-row p { color: var(--muted); font-size: 14px; line-height: 1.6; margin: 8px 0; }

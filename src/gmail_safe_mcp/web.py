@@ -117,7 +117,6 @@ def create_app() -> Flask:
             "save_oauth_client",
             "search",
             "trash",
-            "agents_page",
         }
         is_document_entrypoint = request.endpoint == "gmail_page" and bool(request.script_root)
         if (

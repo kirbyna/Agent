@@ -7,6 +7,28 @@ const documentResultList = document.querySelector("#documentResultList");
 const basePath = document.documentElement.dataset.basePath || "";
 const apiPath = path => `${basePath}${path}`;
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function renderHighlightedSnippet(container, text, query) {
+  container.replaceChildren();
+  const terms = [...new Set(query.split(/\s+/).filter(Boolean))].sort((a, b) => b.length - a.length);
+  if (!terms.length) { container.textContent = text; return; }
+  const pattern = new RegExp(`(${terms.map(escapeRegExp).join("|")})`, "gi");
+  let lastIndex = 0;
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) container.append(document.createTextNode(text.slice(lastIndex, match.index)));
+    const strong = document.createElement("strong");
+    strong.textContent = match[0];
+    container.append(strong);
+    lastIndex = match.index + match[0].length;
+    if (match[0].length === 0) pattern.lastIndex += 1;
+  }
+  if (lastIndex < text.length) container.append(document.createTextNode(text.slice(lastIndex)));
+}
+
 documentSearchForm.addEventListener("submit", async event => {
   event.preventDefault();
   const query = documentQuery.value.trim();
@@ -28,7 +50,7 @@ documentSearchForm.addEventListener("submit", async event => {
       link.textContent = result.filename;
       heading.append(link);
       const snippet = document.createElement("p");
-      snippet.textContent = result.snippet;
+      renderHighlightedSnippet(snippet, result.snippet, query);
       const source = document.createElement("span");
       source.className = "result-source";
       source.textContent = `${result.source} · BM25 ${result.score}`;

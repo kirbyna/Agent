@@ -3,9 +3,9 @@
 {% block content %}
 <section class="page-heading compact">
   <div>
-    <p class="eyebrow">VISION DOCUMENT OCR</p>
+    <p class="eyebrow">DOCUMENT PARSING</p>
     <h1>문서 정보 추출</h1>
-    <p class="subtext">Copilot Vision 모델로 이미지를 분석해 주요 정보를 JSON으로 정리합니다.</p>
+    <p class="subtext">비정형 문서에서 Text를 추출하여 저장하고 META를 생성합니다.</p>
   </div>
   <button id="copilotTokenButton" class="button secondary" type="button">{{ 'Copilot 연결됨' if copilot_token_set else 'Copilot PAT 설정' }}</button>
 </section>
