@@ -57,8 +57,13 @@ function renderBasicTable(value) {
 }
 
 async function responseJson(response) {
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "요청을 처리하지 못했습니다.");
+  const text = await response.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch { /* server returned a non-JSON error body */ }
+  if (!response.ok) {
+    throw new Error(data?.error || `요청을 처리하지 못했습니다. (HTTP ${response.status})`);
+  }
+  if (!data) throw new Error("서버 응답이 비어 있습니다. 잠시 후 다시 시도하세요.");
   return data;
 }
 
