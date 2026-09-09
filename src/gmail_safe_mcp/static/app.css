@@ -16,7 +16,7 @@
 body { background: var(--bg); color: var(--ink); font-family: "IBM Plex Sans KR", sans-serif; margin: 0; min-height: 100vh; }
 button, input { font: inherit; }
 .topbar { align-items: center; background: var(--surface); border-bottom: 1px solid var(--ink); display: flex; height: 72px; justify-content: space-between; padding: 0 max(24px, calc((100vw - 1120px) / 2)); }
-.brand { align-items: center; color: var(--ink); display: flex; font-size: 18px; font-weight: 700; gap: 10px; text-decoration: none; }
+.brand { align-items: center; color: var(--ink); display: flex; font-size: 22px; font-weight: 700; gap: 10px; text-decoration: none; }
 .brand-mark { height: 36px; object-fit: contain; width: 44px; }
 nav { align-self: stretch; display: flex; gap: 8px; }
 .nav-link { align-items: center; border-bottom: 3px solid transparent; color: var(--muted); display: flex; padding: 0 12px; text-decoration: none; }
