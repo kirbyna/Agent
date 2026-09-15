@@ -43,6 +43,61 @@ let toastTimer: number | null = null;
 let drag: DragState | null = null;
 let suppressNextClick = false;
 
+const SAVE_KEY = "spider-solitaire:save:v1";
+
+interface SavedGame {
+  state: GameState;
+  elapsedSeconds: number;
+}
+
+function saveGame() {
+  if (!state) return;
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ state, elapsedSeconds } satisfies SavedGame));
+  } catch {
+    // storage unavailable (private mode, quota, etc.) — resuming just won't be offered
+  }
+}
+
+function loadSavedGame(): SavedGame | null {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    return raw ? (JSON.parse(raw) as SavedGame) : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearSavedGame() {
+  try {
+    localStorage.removeItem(SAVE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+function refreshResumeButton() {
+  const saved = loadSavedGame();
+  const btn = $("btn-resume") as HTMLButtonElement;
+  btn.disabled = !saved;
+  btn.textContent = saved ? `이어하기 · ${difficultyLabel(saved.state.difficulty)}` : "이어하기 · 저장된 게임 없음";
+}
+
+function resumeGame() {
+  const saved = loadSavedGame();
+  if (!saved) return;
+  state = saved.state;
+  history = [];
+  selection = null;
+  elapsedSeconds = saved.elapsedSeconds;
+  $("chip-level").textContent = difficultyLabel(state.difficulty);
+  updateTimeDisplay();
+  (document.getElementById("result-overlay") as HTMLElement).hidden = true;
+  render();
+  showScreen("screen-game");
+  startTimer();
+}
+
 function showScreen(id: string) {
   document.querySelectorAll<HTMLElement>(".screen").forEach((s) => s.classList.toggle("active", s.id === id));
 }
@@ -96,6 +151,7 @@ function render() {
   $("stat-moves").textContent = String(state.moves);
   $("stat-score").textContent = String(state.score);
   ($("btn-undo") as HTMLButtonElement).disabled = history.length === 0;
+  saveGame();
 }
 
 function renderTableau() {
@@ -147,11 +203,13 @@ function checkGameEnd() {
   if (!state) return;
   if (isWon(state)) {
     stopTimer();
+    clearSavedGame();
     showResult("승리!");
     return;
   }
   if (!hasAnyMove(state)) {
     stopTimer();
+    clearSavedGame();
     showResult("더 이상 이동할 수 없어요");
   }
 }
@@ -406,12 +464,16 @@ $("btn-stock").addEventListener("click", handleStockClick);
 $("btn-undo").addEventListener("click", handleUndoClick);
 $("btn-hint").addEventListener("click", handleHintClick);
 
+$("btn-resume").addEventListener("click", resumeGame);
+
 $("btn-back").addEventListener("click", () => {
   stopTimer();
+  refreshResumeButton();
   showScreen("screen-start");
 });
 $("btn-newgame").addEventListener("click", () => {
   stopTimer();
+  refreshResumeButton();
   showScreen("screen-start");
 });
 $("btn-retry").addEventListener("click", () => {
@@ -421,5 +483,8 @@ $("btn-retry").addEventListener("click", () => {
 $("btn-change-level").addEventListener("click", () => {
   ($("result-overlay") as HTMLElement).hidden = true;
   stopTimer();
+  refreshResumeButton();
   showScreen("screen-start");
 });
+
+refreshResumeButton();

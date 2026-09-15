@@ -16,8 +16,10 @@
     --surface: #0d2c1e;
     --surface-line: rgba(255, 255, 255, 0.12);
     --card-face: #f7f2e7;
-    --card-back-a: #1c5a82;
-    --card-back-b: #123f5c;
+    --card-back-1: #7a2230;
+    --card-back-2: #4c1620;
+    --wood-1: #5b3a24;
+    --wood-2: #34210f;
     --ink: #16201a;
     --muted: #b9d2c1;
     --faint: #7fa08d;
@@ -35,7 +37,9 @@
   html, body { height: 100%; }
   body {
     margin: 0;
-    background: radial-gradient(120% 90% at 50% -10%, var(--felt-radial), var(--felt-800) 55%, var(--felt-900) 100%);
+    background:
+      repeating-linear-gradient(45deg, rgba(255,255,255,0.028) 0 1px, transparent 1px 3px),
+      radial-gradient(120% 90% at 50% -10%, var(--felt-radial), var(--felt-800) 55%, var(--felt-900) 100%);
     color: var(--card-face);
     font-family: var(--font-body);
     -webkit-tap-highlight-color: transparent;
@@ -132,7 +136,14 @@
     padding: 12px;
     font: 500 0.85rem var(--font-body);
   }
-  .resume:disabled { opacity: 0.7; }
+  .resume:disabled { opacity: 0.6; }
+  .resume:not(:disabled) {
+    border: 1px solid rgba(220, 174, 68, 0.45);
+    background: rgba(220, 174, 68, 0.1);
+    color: var(--gold);
+    font-weight: 600;
+  }
+  .resume:not(:disabled):active { background: rgba(220, 174, 68, 0.2); }
 
   /* ---------- Game screen ---------- */
   .bar-top {
@@ -194,10 +205,13 @@
     -webkit-user-select: none;
     user-select: none;
   }
-  .card + .card { margin-top: -71%; }
+  .card + .card { margin-top: -66%; }
   .card.face-down {
-    background: repeating-linear-gradient(135deg, var(--card-back-a) 0 4px, var(--card-back-b) 4px 8px);
-    border: 1px solid rgba(255,255,255,0.18);
+    background:
+      repeating-linear-gradient(45deg, rgba(255,255,255,0.16) 0 2px, transparent 2px 7px),
+      repeating-linear-gradient(-45deg, rgba(255,255,255,0.16) 0 2px, transparent 2px 7px),
+      linear-gradient(135deg, var(--card-back-1), var(--card-back-2));
+    border: 1px solid rgba(255,255,255,0.25);
   }
   .card.face-up {
     background: var(--card-face);
@@ -205,14 +219,18 @@
   }
   .idx {
     position: absolute;
-    top: 2px;
-    left: 3px;
+    top: 3px;
+    left: 0;
+    right: 0;
     display: flex;
-    flex-direction: column;
+    align-items: baseline;
+    justify-content: center;
+    gap: 2px;
     line-height: 1;
-    font: 700 9px/1 var(--font-body);
+    font: 800 13px/1 var(--font-body);
+    letter-spacing: -0.02em;
   }
-  .idx span:last-child { font-size: 9px; margin-top: 1px; }
+  .idx span:last-child { font-size: 12px; }
   .card.face-up { cursor: pointer; }
   .card.selected {
     outline: 2px solid var(--gold);
@@ -304,13 +322,13 @@
     justify-content: space-between;
     padding: 10px 16px;
     padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
-    background: var(--surface);
-    border-top: 1px solid var(--surface-line);
+    background: linear-gradient(180deg, var(--wood-1), var(--wood-2));
+    border-top: 1px solid rgba(255,255,255,0.1);
   }
   .text-btn {
     background: transparent;
     border: none;
-    color: var(--muted);
+    color: #e7d7c2;
     font: 600 0.85rem var(--font-body);
     padding: 8px 4px;
   }
@@ -329,8 +347,11 @@
     width: 30px;
     height: 30px;
     border-radius: 4px;
-    background: repeating-linear-gradient(135deg, var(--card-back-a) 0 4px, var(--card-back-b) 4px 8px);
-    border: 1px solid rgba(255,255,255,0.18);
+    background:
+      repeating-linear-gradient(45deg, rgba(255,255,255,0.16) 0 2px, transparent 2px 7px),
+      repeating-linear-gradient(-45deg, rgba(255,255,255,0.16) 0 2px, transparent 2px 7px),
+      linear-gradient(135deg, var(--card-back-1), var(--card-back-2));
+    border: 1px solid rgba(255,255,255,0.25);
     aspect-ratio: 5/7;
   }
   .stock-card:nth-child(1) { transform: translate(0, 4px); }
@@ -393,7 +414,7 @@
           </button>
         </div>
 
-        <button class="resume" disabled>이어하기 · 저장된 게임 없음</button>
+        <button class="resume" id="btn-resume" disabled>이어하기 · 저장된 게임 없음</button>
       </div>
     </section>
 
