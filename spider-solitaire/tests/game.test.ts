@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { mulberry32 } from "../src/core/deck";
-import { dealFromStock, dealNewGame, findHint, hasAnyMove, isWon, moveRun } from "../src/core/game";
+import {
+  dealFromStock,
+  dealNewGame,
+  findAutoTarget,
+  findHint,
+  hasAnyMove,
+  isBoardFullyRevealed,
+  isWon,
+  moveRun,
+} from "../src/core/game";
 import { Card, GameState } from "../src/core/types";
 
 let seq = 0;
@@ -187,5 +196,54 @@ describe("findHint", () => {
       stock: [],
     });
     expect(findHint(state)).toBeNull();
+  });
+});
+
+describe("isBoardFullyRevealed", () => {
+  it("is true when the stock is empty and every card is face-up", () => {
+    const state = baseState({
+      tableau: [[card(5, "♠")], [card(6, "♥")], ...Array.from({ length: 8 }, () => [])],
+      stock: [],
+    });
+    expect(isBoardFullyRevealed(state)).toBe(true);
+  });
+
+  it("is false with a face-down card still on the board", () => {
+    const state = baseState({
+      tableau: [[card(5, "♠", false), card(6, "♥")], ...Array.from({ length: 9 }, () => [])],
+      stock: [],
+    });
+    expect(isBoardFullyRevealed(state)).toBe(false);
+  });
+
+  it("is false while the stock still has cards", () => {
+    const state = baseState({
+      tableau: [[card(5, "♠")], ...Array.from({ length: 9 }, () => [])],
+      stock: [card(1, "♥", false)],
+    });
+    expect(isBoardFullyRevealed(state)).toBe(false);
+  });
+});
+
+describe("findAutoTarget", () => {
+  it("finds a legal landing column for the run", () => {
+    const state = baseState({
+      tableau: [[card(9, "♠")], [card(10, "♥")], ...Array.from({ length: 8 }, () => [])],
+    });
+    expect(findAutoTarget(state, 0, 0)).toBe(1);
+  });
+
+  it("returns null when the card can't move", () => {
+    const state = baseState({
+      tableau: [[card(9, "♥"), card(8, "♠")], [], ...Array.from({ length: 8 }, () => [])],
+    });
+    expect(findAutoTarget(state, 0, 0)).toBeNull();
+  });
+
+  it("returns null when nothing accepts the run (no empty columns either)", () => {
+    const state = baseState({
+      tableau: [[card(9, "♠")], ...Array.from({ length: 9 }, () => [card(5, "♥")])],
+    });
+    expect(findAutoTarget(state, 0, 0)).toBeNull();
   });
 });

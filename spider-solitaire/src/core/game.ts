@@ -142,3 +142,20 @@ export function hasAnyMove(state: GameState): boolean {
   }
   return dealFromStock(state) !== null;
 }
+
+/** True once the stock is empty and every card on the board is face-up — nothing left to discover. */
+export function isBoardFullyRevealed(state: GameState): boolean {
+  return state.stock.length === 0 && state.tableau.every((column) => column.every((card) => card.faceUp));
+}
+
+/** First column (other than fromCol) the run starting at cardIndex could legally land on, if any. */
+export function findAutoTarget(state: GameState, fromCol: number, cardIndex: number): number | null {
+  const column = state.tableau[fromCol];
+  if (!column || !canMoveFrom(column, cardIndex)) return null;
+  const run = column.slice(cardIndex);
+  for (let to = 0; to < state.tableau.length; to++) {
+    if (to === fromCol) continue;
+    if (canPlaceRun(run, state.tableau[to]!)) return to;
+  }
+  return null;
+}

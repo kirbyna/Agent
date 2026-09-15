@@ -5,9 +5,11 @@ import {
   dealNewGame,
   Difficulty,
   difficultyLabel,
+  findAutoTarget,
   findHint,
   GameState,
   hasAnyMove,
+  isBoardFullyRevealed,
   isRedSuit,
   isWon,
   moveRun,
@@ -42,6 +44,126 @@ let elapsedSeconds = 0;
 let toastTimer: number | null = null;
 let drag: DragState | null = null;
 let suppressNextClick = false;
+let autoCompleting = false;
+
+/* ---------------- Sound ---------------- */
+
+const SOUND_KEY = "spider-solitaire:sound:v1";
+let soundEnabled = loadSoundPref();
+let audioCtx: AudioContext | null = null;
+
+function loadSoundPref(): boolean {
+  try {
+    const raw = localStorage.getItem(SOUND_KEY);
+    return raw === null ? true : raw === "1";
+  } catch {
+    return true;
+  }
+}
+
+function saveSoundPref() {
+  try {
+    localStorage.setItem(SOUND_KEY, soundEnabled ? "1" : "0");
+  } catch {
+    // ignore
+  }
+}
+
+function ensureAudioContext(): AudioContext | null {
+  if (!soundEnabled) return null;
+  try {
+    if (!audioCtx) audioCtx = new AudioContext();
+    if (audioCtx.state === "suspended") void audioCtx.resume();
+    return audioCtx;
+  } catch {
+    return null;
+  }
+}
+
+function playTone(freq: number, durationMs: number, type: OscillatorType = "sine", peak = 0.07) {
+  const ctx = ensureAudioContext();
+  if (!ctx) return;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  const now = ctx.currentTime;
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.linearRampToValueAtTime(peak, now + 0.012);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + durationMs / 1000);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + durationMs / 1000 + 0.03);
+}
+
+function playMoveSound() { playTone(520, 90, "triangle", 0.05); }
+function playDealSound() { playTone(360, 70, "square", 0.035); }
+function playInvalidSound() { playTone(160, 130, "sawtooth", 0.04); }
+function playCollectSound() {
+  [660, 880, 1046].forEach((f, i) => window.setTimeout(() => playTone(f, 140, "sine", 0.05), i * 70));
+}
+function playWinSound() {
+  [523, 659, 784, 1047].forEach((f, i) => window.setTimeout(() => playTone(f, 200, "sine", 0.055), i * 120));
+}
+
+function updateSoundButton() {
+  const btn = $("btn-sound");
+  btn.classList.toggle("muted", !soundEnabled);
+  btn.setAttribute("aria-label", soundEnabled ? "효과음 끄기" : "효과음 켜기");
+  const wave = document.getElementById("sound-wave") as SVGElement | null;
+  if (wave) wave.style.display = soundEnabled ? "" : "none";
+}
+
+/* ---------------- Best-score tracking ---------------- */
+
+const STATS_KEY = "spider-solitaire:stats:v1";
+
+interface DifficultyStats {
+  bestScore: number;
+  bestTimeSeconds: number;
+  wins: number;
+}
+
+type StatsMap = Partial<Record<Difficulty, DifficultyStats>>;
+
+function loadStats(): StatsMap {
+  try {
+    const raw = localStorage.getItem(STATS_KEY);
+    return raw ? (JSON.parse(raw) as StatsMap) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveStats(stats: StatsMap) {
+  try {
+    localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+  } catch {
+    // ignore
+  }
+}
+
+function recordWin(difficulty: Difficulty, score: number, timeSeconds: number) {
+  const stats = loadStats();
+  const prev = stats[difficulty];
+  const isNewScore = !prev || score > prev.bestScore;
+  const isNewTime = !prev || timeSeconds < prev.bestTimeSeconds;
+  const next: DifficultyStats = {
+    bestScore: prev ? Math.max(prev.bestScore, score) : score,
+    bestTimeSeconds: prev ? Math.min(prev.bestTimeSeconds, timeSeconds) : timeSeconds,
+    wins: (prev?.wins ?? 0) + 1,
+  };
+  stats[difficulty] = next;
+  saveStats(stats);
+  return { best: next, isNewRecord: isNewScore || isNewTime };
+}
+
+function formatMMSS(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
+  const s = (totalSeconds % 60).toString().padStart(2, "0");
+  return `${m}:${s}`;
+}
 
 const SAVE_KEY = "spider-solitaire:save:v1";
 
@@ -118,9 +240,7 @@ function stopTimer() {
 }
 
 function updateTimeDisplay() {
-  const m = Math.floor(elapsedSeconds / 60).toString().padStart(2, "0");
-  const s = (elapsedSeconds % 60).toString().padStart(2, "0");
-  $("stat-time").textContent = `${m}:${s}`;
+  $("stat-time").textContent = formatMMSS(elapsedSeconds);
 }
 
 function showToast(message: string) {
@@ -151,7 +271,13 @@ function render() {
   $("stat-moves").textContent = String(state.moves);
   $("stat-score").textContent = String(state.score);
   ($("btn-undo") as HTMLButtonElement).disabled = history.length === 0;
+  updateAutoCompleteVisibility();
   saveGame();
+}
+
+function updateAutoCompleteVisibility() {
+  const btn = $("btn-autocomplete") as HTMLButtonElement;
+  btn.hidden = autoCompleting || !state || isWon(state) || !isBoardFullyRevealed(state);
 }
 
 interface CardSnapshot {
@@ -303,7 +429,7 @@ function renderStock() {
 
 function showResult(title: string) {
   $("result-title").textContent = title;
-  $("result-time").textContent = $("stat-time").textContent ?? "00:00";
+  $("result-time").textContent = formatMMSS(elapsedSeconds);
   $("result-moves").textContent = String(state!.moves);
   $("result-score").textContent = String(state!.score);
   ($("result-overlay") as HTMLElement).hidden = false;
@@ -314,9 +440,17 @@ function checkGameEnd() {
   if (isWon(state)) {
     stopTimer();
     clearSavedGame();
+    playWinSound();
+    const { best, isNewRecord } = recordWin(state.difficulty, state.score, elapsedSeconds);
+    const bestEl = $("overlay-best");
+    bestEl.textContent = `${isNewRecord ? "🏆 신기록! " : ""}최고 점수 ${best.bestScore} · 최단 시간 ${formatMMSS(
+      best.bestTimeSeconds
+    )} · ${best.wins}승`;
+    bestEl.hidden = false;
     showResult("승리!");
     return;
   }
+  $("overlay-best").hidden = true;
   if (!hasAnyMove(state)) {
     stopTimer();
     clearSavedGame();
@@ -324,12 +458,33 @@ function checkGameEnd() {
   }
 }
 
+/** Applies a move, animating and playing the appropriate sound. Returns whether it succeeded. */
+function commitMove(fromCol: number, cardIndex: number, toCol: number): boolean {
+  if (!state) return false;
+  const prev = state;
+  const next = moveRun(state, fromCol, cardIndex, toCol);
+  if (!next) {
+    playInvalidSound();
+    showToast("이동할 수 없습니다");
+    renderAnimated();
+    return false;
+  }
+  selection = null;
+  history.push(prev);
+  state = next;
+  renderAnimated();
+  if (next.completedSuits.length > prev.completedSuits.length) playCollectSound();
+  else playMoveSound();
+  checkGameEnd();
+  return true;
+}
+
 function handleTableauClick(event: MouseEvent) {
   if (suppressNextClick) {
     suppressNextClick = false;
     return;
   }
-  if (!state) return;
+  if (!state || autoCompleting) return;
   const target = event.target as HTMLElement;
   const colEl = target.closest<HTMLElement>(".column");
   if (!colEl) return;
@@ -359,6 +514,8 @@ function handleTableauClick(event: MouseEvent) {
     history.push(prev);
     state = next;
     renderAnimated();
+    if (next.completedSuits.length > prev.completedSuits.length) playCollectSound();
+    else playMoveSound();
     checkGameEnd();
     return;
   }
@@ -372,6 +529,7 @@ function handleTableauClick(event: MouseEvent) {
   }
 
   selection = null;
+  playInvalidSound();
   showToast("이동할 수 없습니다");
   renderAnimated();
 }
@@ -381,7 +539,7 @@ function handleTableauPointerDown(event: PointerEvent) {
   // browser only fires one when pointerdown/up share the same target), so a pending
   // suppression flag from a prior drag would otherwise leak into this unrelated tap.
   suppressNextClick = false;
-  if (!state || drag || !event.isPrimary) return;
+  if (!state || drag || !event.isPrimary || autoCompleting) return;
   const cardEl = (event.target as HTMLElement).closest<HTMLElement>(".card.face-up");
   if (!cardEl) return;
   const fromCol = Number(cardEl.dataset.col);
@@ -490,18 +648,7 @@ function handleDragPointerUp(event: PointerEvent) {
     return;
   }
 
-  const prev = state;
-  const next = moveRun(state, fromCol, cardIndex, toCol);
-  if (next) {
-    selection = null;
-    history.push(prev);
-    state = next;
-    renderAnimated();
-    checkGameEnd();
-  } else {
-    showToast("이동할 수 없습니다");
-    renderAnimated();
-  }
+  commitMove(fromCol, cardIndex, toCol);
 }
 
 function handleDragPointerCancel(event: PointerEvent) {
@@ -512,11 +659,12 @@ function handleDragPointerCancel(event: PointerEvent) {
 }
 
 function handleStockClick() {
-  if (!state) return;
+  if (!state || autoCompleting) return;
   const prev = state;
   const next = dealFromStock(state);
   if (!next) {
     const hasEmptyColumn = state.tableau.some((column) => column.length === 0);
+    playInvalidSound();
     showToast(hasEmptyColumn ? "빈 컬럼이 있어 딜할 수 없습니다" : "더 이상 스톡이 없습니다");
     return;
   }
@@ -524,18 +672,62 @@ function handleStockClick() {
   state = next;
   selection = null;
   renderAnimated();
+  playDealSound();
   checkGameEnd();
 }
 
 function handleUndoClick() {
-  if (history.length === 0) return;
+  if (history.length === 0 || autoCompleting) return;
   state = history.pop()!;
   selection = null;
   renderAnimated();
 }
 
+function handleTableauDoubleClick(event: MouseEvent) {
+  if (!state || autoCompleting) return;
+  const cardEl = (event.target as HTMLElement).closest<HTMLElement>(".card.face-up");
+  if (!cardEl) return;
+  const fromCol = Number(cardEl.dataset.col);
+  const cardIndex = Number(cardEl.dataset.index);
+  const toCol = findAutoTarget(state, fromCol, cardIndex);
+  if (toCol === null) {
+    playInvalidSound();
+    showToast("이동할 곳이 없습니다");
+    return;
+  }
+  commitMove(fromCol, cardIndex, toCol);
+}
+
+function handleAutoCompleteClick() {
+  if (!state || autoCompleting) return;
+  autoCompleting = true;
+  updateAutoCompleteVisibility();
+
+  const step = () => {
+    if (!state) {
+      autoCompleting = false;
+      return;
+    }
+    const hint = findHint(state);
+    if (!hint || hint.type !== "move") {
+      autoCompleting = false;
+      updateAutoCompleteVisibility();
+      checkGameEnd();
+      return;
+    }
+    const success = commitMove(hint.fromCol, hint.cardIndex, hint.toCol);
+    if (!success || isWon(state)) {
+      autoCompleting = false;
+      updateAutoCompleteVisibility();
+      return;
+    }
+    window.setTimeout(step, 260);
+  };
+  step();
+}
+
 function handleHintClick() {
-  if (!state) return;
+  if (!state || autoCompleting) return;
   const hint = findHint(state);
   if (!hint) {
     showToast("가능한 이동이 없습니다");
@@ -570,9 +762,19 @@ document.querySelectorAll<HTMLElement>(".tier").forEach((btn) => {
 
 $("tableau").addEventListener("click", handleTableauClick);
 $("tableau").addEventListener("pointerdown", handleTableauPointerDown);
+$("tableau").addEventListener("dblclick", handleTableauDoubleClick);
 $("btn-stock").addEventListener("click", handleStockClick);
 $("btn-undo").addEventListener("click", handleUndoClick);
 $("btn-hint").addEventListener("click", handleHintClick);
+$("btn-autocomplete").addEventListener("click", handleAutoCompleteClick);
+
+$("btn-sound").addEventListener("click", () => {
+  soundEnabled = !soundEnabled;
+  saveSoundPref();
+  updateSoundButton();
+  if (soundEnabled) playTone(700, 60, "sine", 0.05);
+});
+updateSoundButton();
 
 $("btn-resume").addEventListener("click", resumeGame);
 

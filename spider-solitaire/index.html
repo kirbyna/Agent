@@ -160,9 +160,20 @@
     background: transparent;
     border: none;
     color: var(--card-face);
-    font: 700 0.95rem/1 var(--font-display);
+    font: 700 1rem/1 var(--font-display);
   }
   .nav-btn:active { color: var(--gold); }
+  .nav-group { display: flex; align-items: center; gap: 10px; }
+  .sound-btn {
+    background: transparent;
+    border: none;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .sound-btn svg { width: 20px; height: 20px; stroke: var(--muted); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .sound-btn.muted svg { stroke: var(--faint); opacity: 0.6; }
 
   .deal-row {
     flex: 0 0 auto;
@@ -206,7 +217,7 @@
     -webkit-user-select: none;
     user-select: none;
   }
-  .card + .card { margin-top: -66%; }
+  .card + .card { margin-top: -62%; }
   .card.face-down {
     background:
       repeating-linear-gradient(45deg, rgba(255,255,255,0.16) 0 2px, transparent 2px 7px),
@@ -220,7 +231,7 @@
   }
   .idx {
     position: absolute;
-    top: 3px;
+    top: 2px;
     left: 0;
     right: 0;
     display: flex;
@@ -228,10 +239,10 @@
     justify-content: center;
     gap: 2px;
     line-height: 1;
-    font: 800 13px/1 var(--font-body);
+    font: 800 15px/1 var(--font-body);
     letter-spacing: -0.02em;
   }
-  .idx span:last-child { font-size: 12px; }
+  .idx span:last-child { font-size: 14px; }
   .card.face-up { cursor: pointer; }
   .card.selected {
     outline: 2px solid var(--gold);
@@ -291,6 +302,27 @@
   }
   .toast.show { opacity: 1; }
 
+  .autocomplete-btn {
+    position: absolute;
+    left: 50%;
+    bottom: 78px;
+    transform: translateX(-50%);
+    background: var(--gold);
+    color: var(--gold-ink);
+    border: none;
+    font: 700 0.85rem/1 var(--font-body);
+    padding: 11px 18px;
+    border-radius: 999px;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+    z-index: 6;
+    animation: spider-autocomplete-pop 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .autocomplete-btn:active { transform: translateX(-50%) scale(0.96); }
+  @keyframes spider-autocomplete-pop {
+    from { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.9); }
+    to { opacity: 1; transform: translateX(-50%); }
+  }
+
   .overlay {
     position: absolute;
     inset: 0;
@@ -316,6 +348,15 @@
   .overlay-title { margin: 0; font: 700 1.4rem/1.2 var(--font-display); }
   .overlay-stats { display: flex; justify-content: center; gap: 18px; }
   .overlay-stats .stat-v { font-size: 1rem; }
+  .overlay-best {
+    margin: 0;
+    font: 600 0.8rem/1.4 var(--font-body);
+    color: var(--gold);
+    background: rgba(220, 174, 68, 0.12);
+    border: 1px solid rgba(220, 174, 68, 0.3);
+    border-radius: 10px;
+    padding: 8px 10px;
+  }
   .overlay-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
   .overlay-btn {
     border: none;
@@ -347,20 +388,20 @@
     padding: 6px 8px;
     min-width: 64px;
   }
-  .hint-action span { font: 600 0.72rem/1 var(--font-body); white-space: nowrap; }
-  .hint-action svg { width: 22px; height: 22px; stroke: #e7d7c2; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .hint-action span { font: 600 0.78rem/1 var(--font-body); white-space: nowrap; }
+  .hint-action svg { width: 26px; height: 26px; stroke: #e7d7c2; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
   .hint-action:active { color: var(--card-face); }
   .hint-action:active svg { stroke: var(--card-face); }
   .hint-action:disabled { opacity: 0.4; }
 
   .stat-stack { display: flex; flex-direction: column; align-items: center; gap: 2px; }
   .stat-stack .stat-score {
-    font: 700 1.05rem/1 var(--font-display);
+    font: 700 1.25rem/1 var(--font-display);
     color: var(--gold);
     font-variant-numeric: tabular-nums;
   }
   .stat-stack .stat-sub {
-    font: 500 0.72rem/1 var(--font-body);
+    font: 500 0.78rem/1 var(--font-body);
     color: #cbb9a2;
     font-variant-numeric: tabular-nums;
   }
@@ -456,7 +497,12 @@
       <header class="nav-bar">
         <button class="nav-btn" id="btn-back" aria-label="난이도 선택으로 돌아가기">‹ 뒤로</button>
         <span class="chip" id="chip-level">보통 · 2수트</span>
-        <button class="nav-btn" id="btn-newgame">새 게임</button>
+        <div class="nav-group">
+          <button class="sound-btn" id="btn-sound" aria-label="효과음 켜기/끄기">
+            <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 5V4L8 9H4Z" /><path id="sound-wave" d="M17 8a6 6 0 0 1 0 8" /></svg>
+          </button>
+          <button class="nav-btn" id="btn-newgame">새 게임</button>
+        </div>
       </header>
 
       <div class="deal-row">
@@ -486,6 +532,8 @@
         </button>
       </footer>
 
+      <button class="autocomplete-btn" id="btn-autocomplete" hidden>자동 정리 ▶</button>
+
       <div class="toast" id="toast"></div>
 
       <div class="overlay" id="result-overlay" hidden>
@@ -496,6 +544,7 @@
             <span class="stat"><span class="stat-k">이동</span><span class="stat-v" id="result-moves">0</span></span>
             <span class="stat"><span class="stat-k">점수</span><span class="stat-v" id="result-score">500</span></span>
           </div>
+          <p class="overlay-best" id="overlay-best" hidden></p>
           <div class="overlay-actions">
             <button class="overlay-btn primary" id="btn-retry">같은 난이도로 다시</button>
             <button class="overlay-btn ghost" id="btn-change-level">난이도 변경</button>
