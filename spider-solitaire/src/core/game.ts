@@ -11,7 +11,13 @@ function collectCompletedRun(tableau: Card[][], columnIndex: number, score: numb
   if (!suit) return { tableau, score, completedSuits };
   const nextTableau = tableau.slice();
   const column = nextTableau[columnIndex]!;
-  nextTableau[columnIndex] = column.slice(0, column.length - 13);
+  const remaining = column.slice(0, column.length - 13);
+  if (remaining.length > 0) {
+    const topIndex = remaining.length - 1;
+    const top = remaining[topIndex]!;
+    if (!top.faceUp) remaining[topIndex] = { ...top, faceUp: true };
+  }
+  nextTableau[columnIndex] = remaining;
   return {
     tableau: nextTableau,
     score: score + COMPLETED_RUN_BONUS,

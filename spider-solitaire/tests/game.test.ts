@@ -107,6 +107,24 @@ describe("moveRun", () => {
     expect(next!.score).toBe(500 - 1 + 100);
     expect(isWon(next!)).toBe(false);
   });
+
+  it("flips the card newly exposed by a collected run face-up", () => {
+    const queenToAce: Card[] = [];
+    for (let rank = 12; rank >= 1; rank--) queenToAce.push(card(rank, "♠"));
+    const buried = card(9, "♥", false);
+
+    // column 0 (the move's destination) has a buried face-down card sitting under the K;
+    // moving the whole Q..A run onto it completes a K..A run, and once those 13 cards are
+    // collected, the buried card underneath should flip face-up automatically.
+    const state = baseState({
+      tableau: [[buried, card(13, "♠")], queenToAce, ...Array.from({ length: 8 }, () => [])],
+    });
+
+    const next = moveRun(state, 1, 0, 0);
+    expect(next).not.toBeNull();
+    expect(next!.tableau[0]).toEqual([{ ...buried, faceUp: true }]);
+    expect(next!.completedSuits).toEqual(["♠"]);
+  });
 });
 
 describe("dealFromStock", () => {
