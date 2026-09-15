@@ -215,8 +215,8 @@ function resumeGame() {
   $("chip-level").textContent = difficultyLabel(state.difficulty);
   updateTimeDisplay();
   (document.getElementById("result-overlay") as HTMLElement).hidden = true;
-  render();
   showScreen("screen-game");
+  render();
   startTimer();
 }
 
@@ -259,8 +259,8 @@ function startGame(level: Difficulty, label: string) {
   $("chip-level").textContent = label;
   updateTimeDisplay();
   ($("result-overlay") as HTMLElement).hidden = true;
-  render();
   showScreen("screen-game");
+  render();
   startTimer();
 }
 
@@ -392,7 +392,10 @@ function renderAnimated() {
 function renderTableau() {
   const tableauEl = $("tableau");
   tableauEl.innerHTML = "";
+  let maxColumnLength = 0;
+
   state!.tableau.forEach((column, colIndex) => {
+    maxColumnLength = Math.max(maxColumnLength, column.length);
     const colEl = document.createElement("div");
     colEl.className = column.length === 0 ? "column empty" : "column";
     colEl.dataset.col = String(colIndex);
@@ -406,11 +409,19 @@ function renderTableau() {
 
       if (card.faceUp) {
         const label = rankLabel(card.rank);
+        const suitColor = isRedSuit(card.suit) ? "var(--red-suit)" : "var(--black-suit)";
+
         const idx = document.createElement("span");
         idx.className = label.length > 1 ? "idx wide" : "idx";
-        idx.style.color = isRedSuit(card.suit) ? "var(--red-suit)" : "var(--black-suit)";
+        idx.style.color = suitColor;
         idx.innerHTML = `<span>${label}</span><span>${card.suit}</span>`;
         cardEl.appendChild(idx);
+
+        const center = document.createElement("span");
+        center.className = "center-mark";
+        center.style.color = suitColor;
+        center.textContent = card.suit;
+        cardEl.appendChild(center);
       }
       if (selection && selection.col === colIndex && cardIndex >= selection.index) {
         cardEl.classList.add("selected");
@@ -420,6 +431,54 @@ function renderTableau() {
 
     tableauEl.appendChild(colEl);
   });
+
+  adjustCardOverlap(tableauEl, maxColumnLength);
+}
+
+const DEFAULT_CARD_OVERLAP = 0.58; // matches the CSS fallback (calc(-1 * var(--card-overlap, 58%)))
+const MAX_CARD_OVERLAP = 0.86; // never shrink the visible sliver below ~14% of a card
+
+/** Increases card overlap (shrinks the visible sliver) just enough that the tallest
+ *  column still fits the tableau's height, instead of running off the bottom. */
+function adjustCardOverlap(tableauEl: HTMLElement, maxColumnLength: number) {
+  if (maxColumnLength <= 1) {
+    tableauEl.style.removeProperty("--card-overlap");
+    return;
+  }
+  const firstCard = tableauEl.querySelector<HTMLElement>(".card");
+  const availableHeight = tableauEl.clientHeight;
+  if (!firstCard || availableHeight <= 0) {
+    tableauEl.style.removeProperty("--card-overlap");
+    return;
+  }
+  const rect = firstCard.getBoundingClientRect();
+  const cardHeight = rect.height;
+  const cardWidth = rect.width;
+  if (cardHeight <= 0 || cardWidth <= 0) return;
+
+  // A few px of slack absorbs sub-pixel rounding across many stacked margins so the
+  // tallest column doesn't end up sitting exactly on (or a hair past) the edge.
+  const safeHeight = availableHeight - 16;
+
+  // CSS resolves a vertical percentage margin against the containing block's WIDTH,
+  // not this element's own height, so the visible "peek" per covered card is
+  // cardHeight - overlapFraction * cardWidth, not cardHeight * (1 - overlapFraction).
+  const defaultPeek = cardHeight - DEFAULT_CARD_OVERLAP * cardWidth;
+  const neededHeight = cardHeight + (maxColumnLength - 1) * defaultPeek;
+  if (neededHeight <= safeHeight) {
+    tableauEl.style.removeProperty("--card-overlap");
+    return;
+  }
+
+  const requiredOverlap = (maxColumnLength * cardHeight - safeHeight) / ((maxColumnLength - 1) * cardWidth);
+  const clamped = Math.min(MAX_CARD_OVERLAP, Math.max(DEFAULT_CARD_OVERLAP, requiredOverlap));
+  tableauEl.style.setProperty("--card-overlap", `${(clamped * 100).toFixed(2)}%`);
+}
+
+function currentCardOverlapFraction(): number {
+  const raw = getComputedStyle($("tableau")).getPropertyValue("--card-overlap").trim();
+  const pct = raw ? parseFloat(raw) : NaN;
+  return Number.isFinite(pct) ? pct / 100 : DEFAULT_CARD_OVERLAP;
 }
 
 function renderStock() {
@@ -581,7 +640,7 @@ function beginDragVisuals() {
   ghost.style.left = `${rect.left}px`;
   ghost.style.top = `${rect.top}px`;
 
-  const stepOffset = rect.height * 0.42; // mirrors the tableau's -58% overlap
+  const stepOffset = rect.height - currentCardOverlapFraction() * rect.width;
   runCardEls.forEach((el, i) => {
     const card = column[drag!.cardIndex + i]!;
     const ghostCard = document.createElement("div");

@@ -204,6 +204,7 @@
     gap: 2px;
     padding: 10px 5px 6px;
     align-content: start;
+    align-items: start;
     min-height: 0;
     touch-action: none;
   }
@@ -222,7 +223,7 @@
     -webkit-user-select: none;
     user-select: none;
   }
-  .card + .card { margin-top: -58%; }
+  .card + .card { margin-top: calc(-1 * var(--card-overlap, 58%)); }
   .card.face-down {
     background:
       repeating-linear-gradient(45deg, rgba(255,255,255,0.16) 0 2px, transparent 2px 7px),
@@ -250,6 +251,17 @@
   }
   .idx span:last-child { font-size: 16px; }
   .idx.wide { font-size: 15px; }
+  .center-mark {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    line-height: 1;
+    opacity: 0.24;
+    pointer-events: none;
+  }
   .idx.wide span:last-child { font-size: 13px; }
   .card.face-up { cursor: pointer; }
   .card.selected {
@@ -420,6 +432,14 @@
     border: none;
     padding: 4px;
     display: flex;
+    border-radius: 10px;
+  }
+  .stock.hint {
+    animation: spider-stock-glow 0.55s ease-in-out infinite alternate;
+  }
+  @keyframes spider-stock-glow {
+    from { box-shadow: 0 0 0 0 rgba(111, 214, 168, 0.55); background: transparent; }
+    to { box-shadow: 0 0 14px 4px rgba(111, 214, 168, 0.55); background: rgba(111, 214, 168, 0.14); }
   }
   .stock-cards { position: relative; width: 40px; height: 30px; display: block; }
   .stock-card {
@@ -457,6 +477,7 @@
     .tier { transition: none; }
     .card.deal-in { animation: none; }
     .collect-fly { transition: none; }
+    .stock.hint { animation: none; background: rgba(111, 214, 168, 0.18); }
   }
 </style>
 </head>
