@@ -201,13 +201,18 @@
     flex: 1;
     display: grid;
     grid-template-columns: repeat(10, 1fr);
-    gap: 3px;
-    padding: 10px 8px 6px;
+    gap: 2px;
+    padding: 10px 5px 6px;
     align-content: start;
     min-height: 0;
     touch-action: none;
   }
   .column { position: relative; display: flex; flex-direction: column; }
+  .column.empty {
+    aspect-ratio: 5 / 7;
+    border: 2px dashed rgba(247, 242, 231, 0.28);
+    border-radius: 5px;
+  }
   .card {
     position: relative;
     width: 100%;
@@ -217,7 +222,7 @@
     -webkit-user-select: none;
     user-select: none;
   }
-  .card + .card { margin-top: -62%; }
+  .card + .card { margin-top: -58%; }
   .card.face-down {
     background:
       repeating-linear-gradient(45deg, rgba(255,255,255,0.16) 0 2px, transparent 2px 7px),
@@ -231,18 +236,21 @@
   }
   .idx {
     position: absolute;
-    top: 2px;
+    top: 1px;
     left: 0;
     right: 0;
     display: flex;
     align-items: baseline;
     justify-content: center;
-    gap: 2px;
+    gap: 1px;
     line-height: 1;
-    font: 800 15px/1 var(--font-body);
-    letter-spacing: -0.02em;
+    font: 800 18px/1 var(--font-body);
+    letter-spacing: -0.03em;
+    white-space: nowrap;
   }
-  .idx span:last-child { font-size: 14px; }
+  .idx span:last-child { font-size: 16px; }
+  .idx.wide { font-size: 15px; }
+  .idx.wide span:last-child { font-size: 13px; }
   .card.face-up { cursor: pointer; }
   .card.selected {
     outline: 2px solid var(--gold);

@@ -394,7 +394,7 @@ function renderTableau() {
   tableauEl.innerHTML = "";
   state!.tableau.forEach((column, colIndex) => {
     const colEl = document.createElement("div");
-    colEl.className = "column";
+    colEl.className = column.length === 0 ? "column empty" : "column";
     colEl.dataset.col = String(colIndex);
 
     column.forEach((card: Card, cardIndex) => {
@@ -405,10 +405,11 @@ function renderTableau() {
       cardEl.dataset.cardId = card.id;
 
       if (card.faceUp) {
+        const label = rankLabel(card.rank);
         const idx = document.createElement("span");
-        idx.className = "idx";
+        idx.className = label.length > 1 ? "idx wide" : "idx";
         idx.style.color = isRedSuit(card.suit) ? "var(--red-suit)" : "var(--black-suit)";
-        idx.innerHTML = `<span>${rankLabel(card.rank)}</span><span>${card.suit}</span>`;
+        idx.innerHTML = `<span>${label}</span><span>${card.suit}</span>`;
         cardEl.appendChild(idx);
       }
       if (selection && selection.col === colIndex && cardIndex >= selection.index) {
@@ -580,7 +581,7 @@ function beginDragVisuals() {
   ghost.style.left = `${rect.left}px`;
   ghost.style.top = `${rect.top}px`;
 
-  const stepOffset = rect.height * 0.29; // mirrors the tableau's -71% overlap
+  const stepOffset = rect.height * 0.42; // mirrors the tableau's -58% overlap
   runCardEls.forEach((el, i) => {
     const card = column[drag!.cardIndex + i]!;
     const ghostCard = document.createElement("div");
@@ -588,10 +589,11 @@ function beginDragVisuals() {
     ghostCard.style.width = `${rect.width}px`;
     ghostCard.style.height = `${rect.height}px`;
     ghostCard.style.top = `${i * stepOffset}px`;
+    const label = rankLabel(card.rank);
     const idx = document.createElement("span");
-    idx.className = "idx";
+    idx.className = label.length > 1 ? "idx wide" : "idx";
     idx.style.color = isRedSuit(card.suit) ? "var(--red-suit)" : "var(--black-suit)";
-    idx.innerHTML = `<span>${rankLabel(card.rank)}</span><span>${card.suit}</span>`;
+    idx.innerHTML = `<span>${label}</span><span>${card.suit}</span>`;
     ghostCard.appendChild(idx);
     ghost.appendChild(ghostCard);
     el.classList.add("drag-hidden");
@@ -665,7 +667,7 @@ function handleStockClick() {
   if (!next) {
     const hasEmptyColumn = state.tableau.some((column) => column.length === 0);
     playInvalidSound();
-    showToast(hasEmptyColumn ? "빈 컬럼이 있어 딜할 수 없습니다" : "더 이상 스톡이 없습니다");
+    showToast(hasEmptyColumn ? "빈 컬럼을 먼저 채워야 딜할 수 있습니다" : "더 이상 스톡이 없습니다");
     return;
   }
   history.push(prev);
