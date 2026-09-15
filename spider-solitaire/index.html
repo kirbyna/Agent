@@ -146,31 +146,33 @@
   .resume:not(:disabled):active { background: rgba(220, 174, 68, 0.2); }
 
   /* ---------- Game screen ---------- */
-  .bar-top {
+  .nav-bar {
     flex: 0 0 auto;
-    padding: 10px 12px 8px;
+    padding: 10px 16px;
     padding-top: max(10px, env(safe-area-inset-top, 0px));
     background: var(--surface);
     border-bottom: 1px solid var(--surface-line);
     display: flex;
-    flex-direction: column;
-    gap: 6px;
+    align-items: center;
+    justify-content: space-between;
   }
-  .bar-row { display: flex; align-items: center; gap: 8px; }
-  .spacer { flex: 1; }
-  .icon-btn {
-    width: 34px;
-    height: 34px;
-    border-radius: 10px;
-    border: 1px solid var(--surface-line);
-    background: rgba(255,255,255,0.04);
+  .nav-btn {
+    background: transparent;
+    border: none;
+    color: var(--card-face);
+    font: 700 0.95rem/1 var(--font-display);
+  }
+  .nav-btn:active { color: var(--gold); }
+
+  .deal-row {
+    flex: 0 0 auto;
+    padding: 10px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--surface-line);
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
   }
-  .icon-btn:active { background: rgba(255,255,255,0.12); }
-  .icon-btn:disabled { opacity: 0.35; }
-  .icon-btn svg { width: 17px; height: 17px; stroke: var(--card-face); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   .chip {
     font: 600 0.78rem/1 var(--font-body);
     background: rgba(220, 174, 68, 0.16);
@@ -180,7 +182,6 @@
     border-radius: 999px;
     white-space: nowrap;
   }
-  .stat-row { display: flex; gap: 14px; padding-left: 2px; }
   .stat { display: flex; align-items: baseline; gap: 5px; }
   .stat-k { font-size: 0.68rem; color: var(--faint); }
   .stat-v { font: 600 0.85rem/1 var(--font-body); font-variant-numeric: tabular-nums; color: var(--card-face); }
@@ -330,19 +331,40 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 16px;
+    padding: 8px 18px;
     padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
     background: linear-gradient(180deg, var(--wood-1), var(--wood-2));
     border-top: 1px solid rgba(255,255,255,0.1);
   }
-  .text-btn {
+  .hint-action {
     background: transparent;
     border: none;
     color: #e7d7c2;
-    font: 600 0.85rem var(--font-body);
-    padding: 8px 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 6px 8px;
+    min-width: 64px;
   }
-  .text-btn:active { color: var(--card-face); }
+  .hint-action span { font: 600 0.72rem/1 var(--font-body); white-space: nowrap; }
+  .hint-action svg { width: 22px; height: 22px; stroke: #e7d7c2; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .hint-action:active { color: var(--card-face); }
+  .hint-action:active svg { stroke: var(--card-face); }
+  .hint-action:disabled { opacity: 0.4; }
+
+  .stat-stack { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .stat-stack .stat-score {
+    font: 700 1.05rem/1 var(--font-display);
+    color: var(--gold);
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-stack .stat-sub {
+    font: 500 0.72rem/1 var(--font-body);
+    color: #cbb9a2;
+    font-variant-numeric: tabular-nums;
+  }
+
   .stock {
     position: relative;
     background: transparent;
@@ -431,36 +453,36 @@
     </section>
 
     <section id="screen-game" class="screen">
-      <header class="bar-top">
-        <div class="bar-row">
-          <button class="icon-btn" id="btn-back" aria-label="난이도 선택으로 돌아가기">
-            <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
-          </button>
-          <span class="chip" id="chip-level">보통 · 2수트</span>
-          <div class="spacer"></div>
-          <button class="icon-btn" id="btn-undo" aria-label="실행 취소" disabled>
-            <svg viewBox="0 0 24 24"><path d="M9 7 4 12l5 5" /><path d="M4 12h11a5 5 0 0 1 0 10h-1" /></svg>
-          </button>
-          <button class="icon-btn" id="btn-hint" aria-label="힌트 보기">
-            <svg viewBox="0 0 24 24"><path d="M9 18h6" /><path d="M10 21h4" /><path d="M12 3a6 6 0 0 0-3.6 10.8c.5.4.6.9.6 1.5V16h6v-.7c0-.6.1-1.1.6-1.5A6 6 0 0 0 12 3Z" /></svg>
-          </button>
-        </div>
-        <div class="stat-row">
-          <span class="stat"><span class="stat-k">시간</span><span class="stat-v" id="stat-time">00:00</span></span>
-          <span class="stat"><span class="stat-k">이동</span><span class="stat-v" id="stat-moves">0</span></span>
-          <span class="stat"><span class="stat-k">점수</span><span class="stat-v" id="stat-score">500</span></span>
-        </div>
+      <header class="nav-bar">
+        <button class="nav-btn" id="btn-back" aria-label="난이도 선택으로 돌아가기">‹ 뒤로</button>
+        <span class="chip" id="chip-level">보통 · 2수트</span>
+        <button class="nav-btn" id="btn-newgame">새 게임</button>
       </header>
 
-      <main class="tableau" id="tableau"></main>
-
-      <footer class="bar-bottom">
-        <button class="text-btn" id="btn-newgame">새 게임</button>
+      <div class="deal-row">
+        <span class="stat"><span class="stat-k">시간</span><span class="stat-v" id="stat-time">00:00</span></span>
         <button class="stock" id="btn-stock" aria-label="스톡에서 카드 배분">
           <span class="stock-cards" aria-hidden="true">
             <span class="stock-card"></span><span class="stock-card"></span><span class="stock-card"></span>
           </span>
           <span class="stock-badge" id="stock-count">10</span>
+        </button>
+      </div>
+
+      <main class="tableau" id="tableau"></main>
+
+      <footer class="bar-bottom">
+        <button class="hint-action" id="btn-undo" aria-label="실행 취소" disabled>
+          <svg viewBox="0 0 24 24"><path d="M9 7 4 12l5 5" /><path d="M4 12h11a5 5 0 0 1 0 10h-1" /></svg>
+          <span>실행 취소</span>
+        </button>
+        <div class="stat-stack">
+          <span class="stat-score" id="stat-score">500</span>
+          <span class="stat-sub"><span id="stat-moves">0</span>수</span>
+        </div>
+        <button class="hint-action" id="btn-hint" aria-label="힌트 보기">
+          <svg viewBox="0 0 24 24"><path d="M9 18h6" /><path d="M10 21h4" /><path d="M12 3a6 6 0 0 0-3.6 10.8c.5.4.6.9.6 1.5V16h6v-.7c0-.6.1-1.1.6-1.5A6 6 0 0 0 12 3Z" /></svg>
+          <span>힌트</span>
         </button>
       </footer>
 

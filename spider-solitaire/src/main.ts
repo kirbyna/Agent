@@ -173,12 +173,15 @@ function snapshotTableauCards(): Map<string, CardSnapshot> {
 }
 
 /**
- * FLIP-animates cards that moved between the snapshot and the DOM render() just produced,
- * pops in cards that are newly visible (a stock deal), and flies away cards that vanished
- * entirely (a completed K..A run being collected).
+ * FLIP-animates cards that moved between the snapshot and the DOM render() just produced.
+ * A card with no prior snapshot only ever means one thing here (startGame/resumeGame use the
+ * plain, unanimated render() instead) — it just landed from a stock deal — so it flies in from
+ * the stock pile's position, staggered by column. A card that vanished entirely (a completed
+ * K..A run being collected) flies up and fades out from where it sat.
  */
-function animateTableauChanges(before: Map<string, CardSnapshot>) {
+function animateTableauChanges(before: Map<string, CardSnapshot>, stockRect: DOMRect | null) {
   const seenIds = new Set<string>();
+  let dealIndex = 0;
 
   document.querySelectorAll<HTMLElement>("#tableau .card[data-card-id]").forEach((el) => {
     const id = el.dataset.cardId!;
@@ -186,8 +189,31 @@ function animateTableauChanges(before: Map<string, CardSnapshot>) {
     const prev = before.get(id);
 
     if (!prev) {
-      el.classList.add("deal-in");
-      el.addEventListener("animationend", () => el.classList.remove("deal-in"), { once: true });
+      if (!stockRect) {
+        el.classList.add("deal-in");
+        el.addEventListener("animationend", () => el.classList.remove("deal-in"), { once: true });
+        return;
+      }
+      const rect = el.getBoundingClientRect();
+      const dx = stockRect.left - rect.left;
+      const dy = stockRect.top - rect.top;
+      const delay = dealIndex++ * 35;
+      el.style.opacity = "0";
+      el.style.transition = "none";
+      el.style.transform = `translate(${dx}px, ${dy}px) scale(0.85)`;
+      requestAnimationFrame(() => {
+        el.style.transition = `transform 0.32s cubic-bezier(0.22, 1, 0.36, 1) ${delay}ms, opacity 0.18s ease-out ${delay}ms`;
+        el.style.transform = "";
+        el.style.opacity = "1";
+        el.addEventListener(
+          "transitionend",
+          () => {
+            el.style.transition = "";
+            el.style.opacity = "";
+          },
+          { once: true }
+        );
+      });
       return;
     }
 
@@ -231,8 +257,10 @@ function renderAnimated() {
     return;
   }
   const before = snapshotTableauCards();
+  const stockBtn = document.getElementById("btn-stock") as HTMLButtonElement | null;
+  const stockRect = stockBtn && stockBtn.style.visibility !== "hidden" ? stockBtn.getBoundingClientRect() : null;
   render();
-  animateTableauChanges(before);
+  animateTableauChanges(before, stockRect);
 }
 
 function renderTableau() {
