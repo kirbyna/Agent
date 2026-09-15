@@ -108,6 +108,26 @@ export function isWon(state: GameState): boolean {
   return state.completedSuits.length === 8;
 }
 
+export type HintMove = { type: "move"; fromCol: number; cardIndex: number; toCol: number } | { type: "deal" };
+
+/** Finds one legal move to suggest, preferring a tableau move over a stock deal. Null if the game is stuck. */
+export function findHint(state: GameState): HintMove | null {
+  for (let from = 0; from < state.tableau.length; from++) {
+    const column = state.tableau[from]!;
+    const runLength = getMovableRunLength(column);
+    if (runLength === 0) continue;
+    const cardIndex = column.length - runLength;
+    const run = column.slice(cardIndex);
+    for (let to = 0; to < state.tableau.length; to++) {
+      if (to === from) continue;
+      if (canPlaceRun(run, state.tableau[to]!)) {
+        return { type: "move", fromCol: from, cardIndex, toCol: to };
+      }
+    }
+  }
+  return dealFromStock(state) !== null ? { type: "deal" } : null;
+}
+
 /** True if any tableau-to-tableau move or stock deal is currently available. */
 export function hasAnyMove(state: GameState): boolean {
   for (let from = 0; from < state.tableau.length; from++) {

@@ -158,6 +158,7 @@
     justify-content: center;
   }
   .icon-btn:active { background: rgba(255,255,255,0.12); }
+  .icon-btn:disabled { opacity: 0.35; }
   .icon-btn svg { width: 17px; height: 17px; stroke: var(--card-face); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   .chip {
     font: 600 0.78rem/1 var(--font-body);
@@ -209,6 +210,72 @@
     font: 700 9px/1 var(--font-body);
   }
   .idx span:last-child { font-size: 9px; margin-top: 1px; }
+  .card.face-up { cursor: pointer; }
+  .card.selected {
+    outline: 2px solid var(--gold);
+    outline-offset: -1px;
+    transform: translateY(-4px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.45);
+  }
+  .card.hint {
+    outline: 2px solid #6fd6a8;
+    outline-offset: -1px;
+  }
+  .column.hint-target { background: rgba(111, 214, 168, 0.14); border-radius: 6px; }
+
+  .toast {
+    position: absolute;
+    left: 50%;
+    bottom: 78px;
+    transform: translateX(-50%);
+    background: rgba(15, 20, 17, 0.92);
+    border: 1px solid var(--surface-line);
+    color: var(--card-face);
+    font: 500 0.8rem var(--font-body);
+    padding: 8px 14px;
+    border-radius: 999px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    z-index: 5;
+  }
+  .toast.show { opacity: 1; }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(6, 20, 12, 0.72);
+    padding: 24px;
+    z-index: 10;
+  }
+  .overlay-card {
+    width: 100%;
+    max-width: 320px;
+    background: var(--surface);
+    border: 1px solid var(--surface-line);
+    border-radius: 18px;
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    text-align: center;
+  }
+  .overlay-title { margin: 0; font: 700 1.4rem/1.2 var(--font-display); }
+  .overlay-stats { display: flex; justify-content: center; gap: 18px; }
+  .overlay-stats .stat-v { font-size: 1rem; }
+  .overlay-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .overlay-btn {
+    border: none;
+    border-radius: 12px;
+    padding: 12px;
+    font: 600 0.9rem var(--font-body);
+  }
+  .overlay-btn.primary { background: var(--gold); color: var(--gold-ink); }
+  .overlay-btn.ghost { background: rgba(255,255,255,0.06); color: var(--card-face); border: 1px solid var(--surface-line); }
 
   .bar-bottom {
     flex: 0 0 auto;
@@ -318,10 +385,10 @@
           </button>
           <span class="chip" id="chip-level">보통 · 2수트</span>
           <div class="spacer"></div>
-          <button class="icon-btn" aria-label="실행 취소">
+          <button class="icon-btn" id="btn-undo" aria-label="실행 취소" disabled>
             <svg viewBox="0 0 24 24"><path d="M9 7 4 12l5 5" /><path d="M4 12h11a5 5 0 0 1 0 10h-1" /></svg>
           </button>
-          <button class="icon-btn" aria-label="힌트 보기">
+          <button class="icon-btn" id="btn-hint" aria-label="힌트 보기">
             <svg viewBox="0 0 24 24"><path d="M9 18h6" /><path d="M10 21h4" /><path d="M12 3a6 6 0 0 0-3.6 10.8c.5.4.6.9.6 1.5V16h6v-.7c0-.6.1-1.1.6-1.5A6 6 0 0 0 12 3Z" /></svg>
           </button>
         </div>
@@ -343,73 +410,26 @@
           <span class="stock-badge" id="stock-count">10</span>
         </button>
       </footer>
+
+      <div class="toast" id="toast"></div>
+
+      <div class="overlay" id="result-overlay" hidden>
+        <div class="overlay-card">
+          <h2 class="overlay-title" id="result-title">승리!</h2>
+          <div class="overlay-stats">
+            <span class="stat"><span class="stat-k">시간</span><span class="stat-v" id="result-time">00:00</span></span>
+            <span class="stat"><span class="stat-k">이동</span><span class="stat-v" id="result-moves">0</span></span>
+            <span class="stat"><span class="stat-k">점수</span><span class="stat-v" id="result-score">500</span></span>
+          </div>
+          <div class="overlay-actions">
+            <button class="overlay-btn primary" id="btn-retry">같은 난이도로 다시</button>
+            <button class="overlay-btn ghost" id="btn-change-level">난이도 변경</button>
+          </div>
+        </div>
+      </div>
     </section>
   </div>
 
-  <script>
-    // 레이아웃 확인용 더미 배치 — 실제 셔플/이동 규칙은 2단계(게임 로직)에서 구현 예정
-    var SUIT_SETS = {
-      easy: ["♠"],
-      medium: ["♠", "♥"],
-      hard: ["♠", "♥", "♦", "♣"]
-    };
-    var RED_SUITS = { "♥": true, "♦": true };
-    var RANK_LABELS = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
-
-    function rankLabel() { return RANK_LABELS[Math.floor(Math.random() * 13)]; }
-    function randomSuit(suits) { return suits[Math.floor(Math.random() * suits.length)]; }
-
-    function buildColumn(count, suits) {
-      var col = document.createElement("div");
-      col.className = "column";
-      for (var i = 0; i < count; i++) {
-        var isTop = i === count - 1;
-        var card = document.createElement("div");
-        card.className = "card " + (isTop ? "face-up" : "face-down");
-        if (isTop) {
-          var suit = randomSuit(suits);
-          var idx = document.createElement("span");
-          idx.className = "idx";
-          idx.style.color = RED_SUITS[suit] ? "var(--red-suit)" : "var(--black-suit)";
-          idx.innerHTML = "<span>" + rankLabel() + "</span><span>" + suit + "</span>";
-          card.appendChild(idx);
-        }
-        col.appendChild(card);
-      }
-      return col;
-    }
-
-    function dealTableau(level) {
-      var suits = SUIT_SETS[level];
-      var tableau = document.getElementById("tableau");
-      tableau.innerHTML = "";
-      for (var i = 0; i < 10; i++) {
-        var count = i < 4 ? 6 : 5;
-        tableau.appendChild(buildColumn(count, suits));
-      }
-    }
-
-    function showScreen(id) {
-      document.querySelectorAll(".screen").forEach(function (s) {
-        s.classList.toggle("active", s.id === id);
-      });
-    }
-
-    document.querySelectorAll(".tier").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        var level = btn.getAttribute("data-level");
-        document.getElementById("chip-level").textContent = btn.getAttribute("data-label");
-        dealTableau(level);
-        showScreen("screen-game");
-      });
-    });
-
-    document.getElementById("btn-back").addEventListener("click", function () {
-      showScreen("screen-start");
-    });
-    document.getElementById("btn-newgame").addEventListener("click", function () {
-      showScreen("screen-start");
-    });
-  </script>
+  <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

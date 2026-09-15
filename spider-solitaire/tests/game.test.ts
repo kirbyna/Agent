@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mulberry32 } from "../src/core/deck";
-import { dealFromStock, dealNewGame, hasAnyMove, isWon, moveRun } from "../src/core/game";
+import { dealFromStock, dealNewGame, findHint, hasAnyMove, isWon, moveRun } from "../src/core/game";
 import { Card, GameState } from "../src/core/types";
 
 let seq = 0;
@@ -162,5 +162,30 @@ describe("hasAnyMove", () => {
       stock: [],
     });
     expect(hasAnyMove(state)).toBe(false);
+  });
+});
+
+describe("findHint", () => {
+  it("returns a concrete tableau move when one exists", () => {
+    const state = baseState({
+      tableau: [[card(9, "♠")], [card(10, "♥")], ...Array.from({ length: 8 }, () => [])],
+    });
+    expect(findHint(state)).toEqual({ type: "move", fromCol: 0, cardIndex: 0, toCol: 1 });
+  });
+
+  it("falls back to a stock deal when no tableau move exists", () => {
+    const state = baseState({
+      tableau: Array.from({ length: 10 }, () => [card(5, "♠")]),
+      stock: Array.from({ length: 10 }, () => card(1, "♥", false)),
+    });
+    expect(findHint(state)).toEqual({ type: "deal" });
+  });
+
+  it("returns null when the game is stuck", () => {
+    const state = baseState({
+      tableau: Array.from({ length: 10 }, () => [card(2, "♠")]),
+      stock: [],
+    });
+    expect(findHint(state)).toBeNull();
   });
 });
