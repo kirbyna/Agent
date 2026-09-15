@@ -244,6 +244,16 @@
   }
   .column.hint-target { background: rgba(111, 214, 168, 0.14); border-radius: 6px; }
   .card.drag-hidden { visibility: hidden; }
+  .card.deal-in { animation: spider-deal-in 0.26s ease-out; }
+  @keyframes spider-deal-in {
+    from { opacity: 0; transform: translateY(-12px) scale(0.94); }
+    to { opacity: 1; transform: none; }
+  }
+  .collect-fly {
+    transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.5s ease-in;
+    z-index: 60;
+    pointer-events: none;
+  }
 
   .drag-ghost {
     position: fixed;
@@ -374,6 +384,8 @@
 
   @media (prefers-reduced-motion: reduce) {
     .tier { transition: none; }
+    .card.deal-in { animation: none; }
+    .collect-fly { transition: none; }
   }
 </style>
 </head>

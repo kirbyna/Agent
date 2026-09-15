@@ -154,6 +154,87 @@ function render() {
   saveGame();
 }
 
+interface CardSnapshot {
+  rect: DOMRect;
+  clone: HTMLElement;
+}
+
+function prefersReducedMotion(): boolean {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function snapshotTableauCards(): Map<string, CardSnapshot> {
+  const snapshots = new Map<string, CardSnapshot>();
+  document.querySelectorAll<HTMLElement>("#tableau .card[data-card-id]").forEach((el) => {
+    const id = el.dataset.cardId!;
+    snapshots.set(id, { rect: el.getBoundingClientRect(), clone: el.cloneNode(true) as HTMLElement });
+  });
+  return snapshots;
+}
+
+/**
+ * FLIP-animates cards that moved between the snapshot and the DOM render() just produced,
+ * pops in cards that are newly visible (a stock deal), and flies away cards that vanished
+ * entirely (a completed K..A run being collected).
+ */
+function animateTableauChanges(before: Map<string, CardSnapshot>) {
+  const seenIds = new Set<string>();
+
+  document.querySelectorAll<HTMLElement>("#tableau .card[data-card-id]").forEach((el) => {
+    const id = el.dataset.cardId!;
+    seenIds.add(id);
+    const prev = before.get(id);
+
+    if (!prev) {
+      el.classList.add("deal-in");
+      el.addEventListener("animationend", () => el.classList.remove("deal-in"), { once: true });
+      return;
+    }
+
+    const rect = el.getBoundingClientRect();
+    const dx = prev.rect.left - rect.left;
+    const dy = prev.rect.top - rect.top;
+    if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
+
+    el.style.transition = "none";
+    el.style.transform = `translate(${dx}px, ${dy}px)`;
+    requestAnimationFrame(() => {
+      el.style.transition = "transform 0.22s cubic-bezier(0.22, 1, 0.36, 1)";
+      el.style.transform = "";
+      el.addEventListener("transitionend", () => (el.style.transition = ""), { once: true });
+    });
+  });
+
+  before.forEach((snap, id) => {
+    if (seenIds.has(id)) return;
+    const clone = snap.clone;
+    clone.className = "card face-up collect-fly";
+    clone.style.position = "fixed";
+    clone.style.margin = "0";
+    clone.style.left = `${snap.rect.left}px`;
+    clone.style.top = `${snap.rect.top}px`;
+    clone.style.width = `${snap.rect.width}px`;
+    clone.style.height = `${snap.rect.height}px`;
+    document.body.appendChild(clone);
+    requestAnimationFrame(() => {
+      clone.style.transform = "translateY(-70px) scale(0.85)";
+      clone.style.opacity = "0";
+    });
+    clone.addEventListener("transitionend", () => clone.remove(), { once: true });
+    window.setTimeout(() => clone.remove(), 700);
+  });
+}
+
+function renderAnimated() {
+  if (prefersReducedMotion()) {
+    render();
+    return;
+  }
+  const before = snapshotTableauCards();
+  render();
+  animateTableauChanges(before);
+}
+
 function renderTableau() {
   const tableauEl = $("tableau");
   tableauEl.innerHTML = "";
@@ -167,6 +248,7 @@ function renderTableau() {
       cardEl.className = `card ${card.faceUp ? "face-up" : "face-down"}`;
       cardEl.dataset.col = String(colIndex);
       cardEl.dataset.index = String(cardIndex);
+      cardEl.dataset.cardId = card.id;
 
       if (card.faceUp) {
         const idx = document.createElement("span");
@@ -231,14 +313,14 @@ function handleTableauClick(event: MouseEvent) {
     if (cardIndex === null) return;
     if (canMoveFrom(state.tableau[colIndex]!, cardIndex)) {
       selection = { col: colIndex, index: cardIndex };
-      render();
+      renderAnimated();
     }
     return;
   }
 
   if (selection.col === colIndex) {
     selection = null;
-    render();
+    renderAnimated();
     return;
   }
 
@@ -248,7 +330,7 @@ function handleTableauClick(event: MouseEvent) {
     selection = null;
     history.push(prev);
     state = next;
-    render();
+    renderAnimated();
     checkGameEnd();
     return;
   }
@@ -257,13 +339,13 @@ function handleTableauClick(event: MouseEvent) {
   // instead of just complaining, since that's almost certainly what the player meant.
   if (cardIndex !== null && canMoveFrom(state.tableau[colIndex]!, cardIndex)) {
     selection = { col: colIndex, index: cardIndex };
-    render();
+    renderAnimated();
     return;
   }
 
   selection = null;
   showToast("이동할 수 없습니다");
-  render();
+  renderAnimated();
 }
 
 function handleTableauPointerDown(event: PointerEvent) {
@@ -376,7 +458,7 @@ function handleDragPointerUp(event: PointerEvent) {
   suppressNextClick = true;
 
   if (!state || toCol === null || toCol === fromCol) {
-    render();
+    renderAnimated();
     return;
   }
 
@@ -386,11 +468,11 @@ function handleDragPointerUp(event: PointerEvent) {
     selection = null;
     history.push(prev);
     state = next;
-    render();
+    renderAnimated();
     checkGameEnd();
   } else {
     showToast("이동할 수 없습니다");
-    render();
+    renderAnimated();
   }
 }
 
@@ -398,7 +480,7 @@ function handleDragPointerCancel(event: PointerEvent) {
   if (!drag || event.pointerId !== drag.pointerId) return;
   const wasMoved = drag.moved;
   endDrag();
-  if (wasMoved) render();
+  if (wasMoved) renderAnimated();
 }
 
 function handleStockClick() {
@@ -413,7 +495,7 @@ function handleStockClick() {
   history.push(prev);
   state = next;
   selection = null;
-  render();
+  renderAnimated();
   checkGameEnd();
 }
 
@@ -421,7 +503,7 @@ function handleUndoClick() {
   if (history.length === 0) return;
   state = history.pop()!;
   selection = null;
-  render();
+  renderAnimated();
 }
 
 function handleHintClick() {
