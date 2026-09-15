@@ -20,12 +20,28 @@ function $(id: string): HTMLElement {
   return el;
 }
 
+interface DragState {
+  pointerId: number;
+  fromCol: number;
+  cardIndex: number;
+  startX: number;
+  startY: number;
+  moved: boolean;
+  originEl: HTMLElement;
+  cardEls: HTMLElement[];
+  ghostEl: HTMLElement | null;
+}
+
+const DRAG_THRESHOLD_PX = 6;
+
 let state: GameState | null = null;
 let history: GameState[] = [];
 let selection: { col: number; index: number } | null = null;
 let timerId: number | null = null;
 let elapsedSeconds = 0;
 let toastTimer: number | null = null;
+let drag: DragState | null = null;
+let suppressNextClick = false;
 
 function showScreen(id: string) {
   document.querySelectorAll<HTMLElement>(".screen").forEach((s) => s.classList.toggle("active", s.id === id));
@@ -141,6 +157,10 @@ function checkGameEnd() {
 }
 
 function handleTableauClick(event: MouseEvent) {
+  if (suppressNextClick) {
+    suppressNextClick = false;
+    return;
+  }
   if (!state) return;
   const target = event.target as HTMLElement;
   const colEl = target.closest<HTMLElement>(".column");
@@ -186,6 +206,141 @@ function handleTableauClick(event: MouseEvent) {
   selection = null;
   showToast("이동할 수 없습니다");
   render();
+}
+
+function handleTableauPointerDown(event: PointerEvent) {
+  // A completed drag onto a different element never gets a follow-up native click (the
+  // browser only fires one when pointerdown/up share the same target), so a pending
+  // suppression flag from a prior drag would otherwise leak into this unrelated tap.
+  suppressNextClick = false;
+  if (!state || drag || !event.isPrimary) return;
+  const cardEl = (event.target as HTMLElement).closest<HTMLElement>(".card.face-up");
+  if (!cardEl) return;
+  const fromCol = Number(cardEl.dataset.col);
+  const cardIndex = Number(cardEl.dataset.index);
+  if (!canMoveFrom(state.tableau[fromCol]!, cardIndex)) return;
+
+  cardEl.setPointerCapture(event.pointerId);
+  drag = {
+    pointerId: event.pointerId,
+    fromCol,
+    cardIndex,
+    startX: event.clientX,
+    startY: event.clientY,
+    moved: false,
+    originEl: cardEl,
+    cardEls: [],
+    ghostEl: null,
+  };
+  cardEl.addEventListener("pointermove", handleDragPointerMove);
+  cardEl.addEventListener("pointerup", handleDragPointerUp);
+  cardEl.addEventListener("pointercancel", handleDragPointerCancel);
+}
+
+function beginDragVisuals() {
+  if (!state || !drag) return;
+  const column = state.tableau[drag.fromCol]!;
+  const colEl = drag.originEl.closest<HTMLElement>(".column")!;
+  const runCardEls = Array.from(colEl.querySelectorAll<HTMLElement>(".card")).filter(
+    (el) => Number(el.dataset.index) >= drag!.cardIndex
+  );
+
+  const rect = drag.originEl.getBoundingClientRect();
+  drag.cardEls = runCardEls;
+
+  const ghost = document.createElement("div");
+  ghost.className = "drag-ghost";
+  ghost.style.width = `${rect.width}px`;
+  ghost.style.left = `${rect.left}px`;
+  ghost.style.top = `${rect.top}px`;
+
+  const stepOffset = rect.height * 0.29; // mirrors the tableau's -71% overlap
+  runCardEls.forEach((el, i) => {
+    const card = column[drag!.cardIndex + i]!;
+    const ghostCard = document.createElement("div");
+    ghostCard.className = "card face-up";
+    ghostCard.style.width = `${rect.width}px`;
+    ghostCard.style.height = `${rect.height}px`;
+    ghostCard.style.top = `${i * stepOffset}px`;
+    const idx = document.createElement("span");
+    idx.className = "idx";
+    idx.style.color = isRedSuit(card.suit) ? "var(--red-suit)" : "var(--black-suit)";
+    idx.innerHTML = `<span>${rankLabel(card.rank)}</span><span>${card.suit}</span>`;
+    ghostCard.appendChild(idx);
+    ghost.appendChild(ghostCard);
+    el.classList.add("drag-hidden");
+  });
+
+  document.body.appendChild(ghost);
+  drag.ghostEl = ghost;
+  selection = null;
+}
+
+function handleDragPointerMove(event: PointerEvent) {
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  const dx = event.clientX - drag.startX;
+  const dy = event.clientY - drag.startY;
+
+  if (!drag.moved) {
+    if (Math.abs(dx) < DRAG_THRESHOLD_PX && Math.abs(dy) < DRAG_THRESHOLD_PX) return;
+    drag.moved = true;
+    beginDragVisuals();
+  }
+
+  event.preventDefault();
+  if (drag.ghostEl) drag.ghostEl.style.transform = `translate(${dx}px, ${dy}px)`;
+}
+
+function endDrag() {
+  if (!drag) return;
+  drag.cardEls.forEach((el) => el.classList.remove("drag-hidden"));
+  drag.ghostEl?.remove();
+  drag.originEl.removeEventListener("pointermove", handleDragPointerMove);
+  drag.originEl.removeEventListener("pointerup", handleDragPointerUp);
+  drag.originEl.removeEventListener("pointercancel", handleDragPointerCancel);
+  drag = null;
+}
+
+function handleDragPointerUp(event: PointerEvent) {
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  const { fromCol, cardIndex, moved } = drag;
+
+  if (!moved) {
+    endDrag();
+    return; // treat as a plain tap — the browser's click event drives selection
+  }
+
+  event.preventDefault();
+  const dropTarget = document.elementFromPoint(event.clientX, event.clientY);
+  const dropColEl = dropTarget?.closest<HTMLElement>(".column");
+  const toCol = dropColEl ? Number(dropColEl.dataset.col) : null;
+  endDrag();
+  suppressNextClick = true;
+
+  if (!state || toCol === null || toCol === fromCol) {
+    render();
+    return;
+  }
+
+  const prev = state;
+  const next = moveRun(state, fromCol, cardIndex, toCol);
+  if (next) {
+    selection = null;
+    history.push(prev);
+    state = next;
+    render();
+    checkGameEnd();
+  } else {
+    showToast("이동할 수 없습니다");
+    render();
+  }
+}
+
+function handleDragPointerCancel(event: PointerEvent) {
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  const wasMoved = drag.moved;
+  endDrag();
+  if (wasMoved) render();
 }
 
 function handleStockClick() {
@@ -246,6 +401,7 @@ document.querySelectorAll<HTMLElement>(".tier").forEach((btn) => {
 });
 
 $("tableau").addEventListener("click", handleTableauClick);
+$("tableau").addEventListener("pointerdown", handleTableauPointerDown);
 $("btn-stock").addEventListener("click", handleStockClick);
 $("btn-undo").addEventListener("click", handleUndoClick);
 $("btn-hint").addEventListener("click", handleHintClick);
