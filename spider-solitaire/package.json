@@ -9,11 +9,18 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "cap:sync": "npm run build && cap sync ios",
+    "cap:open": "cap open ios"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.2",
     "typescript": "^5.5.4",
     "vite": "^5.4.8",
     "vitest": "^2.0.5"
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/ios": "^8.5.2"
   }
 }
