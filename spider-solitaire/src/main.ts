@@ -11,18 +11,11 @@ import {
   GameState,
   hasAnyMove,
   isBoardFullyRevealed,
+  isRedSuit,
   isWon,
   moveRun,
   rankLabel,
-  Suit,
 } from "./core";
-
-const SUIT_COLOR: Record<Suit, string> = {
-  "♠": "var(--black-suit)",
-  "♣": "var(--club-suit)",
-  "♥": "var(--red-suit)",
-  "♦": "var(--diamond-suit)",
-};
 
 function $(id: string): HTMLElement {
   const el = document.getElementById(id);
@@ -419,7 +412,7 @@ function renderTableau() {
 
       if (card.faceUp) {
         const label = rankLabel(card.rank);
-        const suitColor = SUIT_COLOR[card.suit];
+        const suitColor = isRedSuit(card.suit) ? "var(--red-suit)" : "var(--black-suit)";
 
         const idx = document.createElement("span");
         idx.className = label.length > 1 ? "idx wide" : "idx";
@@ -664,7 +657,7 @@ function beginDragVisuals() {
     const label = rankLabel(card.rank);
     const idx = document.createElement("span");
     idx.className = label.length > 1 ? "idx wide" : "idx";
-    idx.style.color = SUIT_COLOR[card.suit];
+    idx.style.color = isRedSuit(card.suit) ? "var(--red-suit)" : "var(--black-suit)";
     idx.innerHTML = `<span>${label}</span><span>${card.suit}</span>`;
     ghostCard.appendChild(idx);
     ghost.appendChild(ghostCard);
