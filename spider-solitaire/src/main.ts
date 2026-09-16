@@ -438,7 +438,7 @@ function renderTableau() {
   adjustCardOverlap(tableauEl, maxColumnLength);
 }
 
-const DEFAULT_CARD_OVERLAP = 0.82; // matches the CSS fallback (calc(-1 * var(--card-overlap, 82%)))
+const DEFAULT_CARD_OVERLAP = 0.76; // matches the CSS fallback (calc(-1 * var(--card-overlap, 76%)))
 const MAX_CARD_OVERLAP = 0.9; // never shrink the visible sliver below ~10% of a card
 
 /** Increases card overlap (shrinks the visible sliver) just enough that the tallest
@@ -673,13 +673,37 @@ function clearDropHighlight() {
   document.querySelectorAll<HTMLElement>(".column.drop-ready").forEach((el) => el.classList.remove("drop-ready"));
 }
 
-/** Finds the valid drop column (if any) under the pointer, and where the run should
- *  visually snap to land on it, so a hover over a legal target sticks like a magnet. */
+const SNAP_MAGNET_PX = 32; // how far outside the tableau a drop still counts, for a magnetic feel
+
+/** Finds the valid drop column (if any) near the pointer, and where the run should
+ *  visually snap to land on it, so a hover anywhere near a legal target sticks like a magnet.
+ *  Picks the horizontally nearest column within the tableau's vertical span (plus a margin)
+ *  instead of requiring the pointer to sit exactly over rendered card elements. */
 function findSnapTarget(clientX: number, clientY: number): { colEl: HTMLElement; colIndex: number; left: number; top: number } | null {
   if (!state || !drag) return null;
-  const under = document.elementFromPoint(clientX, clientY);
-  const colEl = under?.closest<HTMLElement>(".column");
-  if (!colEl) return null;
+  const tableauEl = $("tableau");
+  const tableauRect = tableauEl.getBoundingClientRect();
+  if (
+    clientY < tableauRect.top - SNAP_MAGNET_PX ||
+    clientY > tableauRect.bottom + SNAP_MAGNET_PX ||
+    clientX < tableauRect.left - SNAP_MAGNET_PX ||
+    clientX > tableauRect.right + SNAP_MAGNET_PX
+  ) {
+    return null;
+  }
+
+  let nearest: HTMLElement | null = null;
+  let bestDist = Infinity;
+  tableauEl.querySelectorAll<HTMLElement>(".column").forEach((el) => {
+    const rect = el.getBoundingClientRect();
+    const dist = clientX < rect.left ? rect.left - clientX : clientX > rect.right ? clientX - rect.right : 0;
+    if (dist < bestDist) {
+      bestDist = dist;
+      nearest = el;
+    }
+  });
+  if (!nearest) return null;
+  const colEl: HTMLElement = nearest;
   const colIndex = Number(colEl.dataset.col);
   if (colIndex === drag.fromCol) return null;
 
@@ -750,9 +774,7 @@ function handleDragPointerUp(event: PointerEvent) {
   }
 
   event.preventDefault();
-  const dropTarget = document.elementFromPoint(event.clientX, event.clientY);
-  const dropColEl = dropTarget?.closest<HTMLElement>(".column");
-  const toCol = dropColEl ? Number(dropColEl.dataset.col) : null;
+  const toCol = drag.snappedCol;
   endDrag();
   suppressNextClick = true;
 

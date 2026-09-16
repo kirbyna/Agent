@@ -63,8 +63,8 @@ body {
    카드는 그대로 두고 "겹침"만 조여서 숫자 띠(≈21px)를 확보합니다.
    (main.ts 가 더 조여야 할 때만 이 값을 덮어씁니다) */
 .tableau {
-  --card-overlap: 82%;
-  gap: 3px;
+  --card-overlap: 76%;
+  gap: 1px;
   padding: 10px 6px 6px;
 }
 
@@ -138,7 +138,7 @@ body {
   inset: 22px 0 auto 0;
   display: block;
   text-align: center;
-  font: 400 34px/1 var(--font-body);
+  font: 900 36px/1 var(--font-body);
   opacity: 1;
 }
 
