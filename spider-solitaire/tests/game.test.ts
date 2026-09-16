@@ -143,12 +143,15 @@ describe("dealFromStock", () => {
     });
   });
 
-  it("refuses to deal when a column is empty", () => {
+  it("fills an empty column too (house rule: no need to fill it first)", () => {
     const state = baseState({
       tableau: [[], ...Array.from({ length: 9 }, () => [card(5, "♠")])],
       stock: Array.from({ length: 10 }, () => card(1, "♥", false)),
     });
-    expect(dealFromStock(state)).toBeNull();
+    const next = dealFromStock(state);
+    expect(next).not.toBeNull();
+    expect(next!.tableau[0]).toHaveLength(1);
+    expect(next!.tableau[0]![0]!.faceUp).toBe(true);
   });
 
   it("refuses to deal when the stock is empty", () => {

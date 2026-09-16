@@ -724,9 +724,8 @@ function handleStockClick() {
   const prev = state;
   const next = dealFromStock(state);
   if (!next) {
-    const hasEmptyColumn = state.tableau.some((column) => column.length === 0);
     playInvalidSound();
-    showToast(hasEmptyColumn ? "빈 컬럼을 먼저 채워야 딜할 수 있습니다" : "더 이상 스톡이 없습니다");
+    showToast("더 이상 스톡이 없습니다");
     return;
   }
   history.push(prev);

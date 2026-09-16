@@ -88,10 +88,13 @@ export function moveRun(state: GameState, fromCol: number, cardIndex: number, to
   };
 }
 
-/** Deals one card face-up onto every column from the stock. Null if the stock is empty or any column is empty. */
+/**
+ * Deals one card face-up onto every column from the stock. Null only if the stock doesn't
+ * have a full round left. Unlike strict Spider rules, this house rule lets a deal fill an
+ * empty column too, rather than requiring every column be filled first.
+ */
 export function dealFromStock(state: GameState): GameState | null {
   if (state.stock.length < STOCK_DEAL_SIZE) return null;
-  if (state.tableau.some((column) => column.length === 0)) return null;
 
   const dealt = state.stock.slice(0, STOCK_DEAL_SIZE);
   const stock = state.stock.slice(STOCK_DEAL_SIZE);
