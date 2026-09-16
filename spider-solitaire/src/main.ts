@@ -1,5 +1,6 @@
 import {
   canMoveFrom,
+  canPlaceRun,
   Card,
   dealFromStock,
   dealNewGame,
@@ -30,8 +31,10 @@ interface DragState {
   startY: number;
   moved: boolean;
   originEl: HTMLElement;
+  originRect: DOMRect | null;
   cardEls: HTMLElement[];
   ghostEl: HTMLElement | null;
+  snappedCol: number | null;
 }
 
 const DRAG_THRESHOLD_PX = 6;
@@ -615,8 +618,10 @@ function handleTableauPointerDown(event: PointerEvent) {
     startY: event.clientY,
     moved: false,
     originEl: cardEl,
+    originRect: null,
     cardEls: [],
     ghostEl: null,
+    snappedCol: null,
   };
   cardEl.addEventListener("pointermove", handleDragPointerMove);
   cardEl.addEventListener("pointerup", handleDragPointerUp);
@@ -633,6 +638,7 @@ function beginDragVisuals() {
 
   const rect = drag.originEl.getBoundingClientRect();
   drag.cardEls = runCardEls;
+  drag.originRect = rect;
 
   const ghost = document.createElement("div");
   ghost.className = "drag-ghost";
@@ -663,6 +669,33 @@ function beginDragVisuals() {
   selection = null;
 }
 
+function clearDropHighlight() {
+  document.querySelectorAll<HTMLElement>(".column.drop-ready").forEach((el) => el.classList.remove("drop-ready"));
+}
+
+/** Finds the valid drop column (if any) under the pointer, and where the run should
+ *  visually snap to land on it, so a hover over a legal target sticks like a magnet. */
+function findSnapTarget(clientX: number, clientY: number): { colEl: HTMLElement; colIndex: number; left: number; top: number } | null {
+  if (!state || !drag) return null;
+  const under = document.elementFromPoint(clientX, clientY);
+  const colEl = under?.closest<HTMLElement>(".column");
+  if (!colEl) return null;
+  const colIndex = Number(colEl.dataset.col);
+  if (colIndex === drag.fromCol) return null;
+
+  const run = state.tableau[drag.fromCol]!.slice(drag.cardIndex);
+  if (!canPlaceRun(run, state.tableau[colIndex]!)) return null;
+
+  const colRect = colEl.getBoundingClientRect();
+  const existingCards = colEl.querySelectorAll<HTMLElement>(".card");
+  if (existingCards.length === 0 || !drag.originRect) {
+    return { colEl, colIndex, left: colRect.left, top: colRect.top };
+  }
+  const lastCardRect = existingCards[existingCards.length - 1]!.getBoundingClientRect();
+  const stepOffset = drag.originRect.height - currentCardOverlapFraction() * drag.originRect.width;
+  return { colEl, colIndex, left: lastCardRect.left, top: lastCardRect.top + stepOffset };
+}
+
 function handleDragPointerMove(event: PointerEvent) {
   if (!drag || event.pointerId !== drag.pointerId) return;
   const dx = event.clientX - drag.startX;
@@ -675,11 +708,30 @@ function handleDragPointerMove(event: PointerEvent) {
   }
 
   event.preventDefault();
-  if (drag.ghostEl) drag.ghostEl.style.transform = `translate(${dx}px, ${dy}px)`;
+  if (!drag.ghostEl || !drag.originRect) return;
+
+  const snap = findSnapTarget(event.clientX, event.clientY);
+  if (snap) {
+    if (drag.snappedCol !== snap.colIndex) {
+      clearDropHighlight();
+      snap.colEl.classList.add("drop-ready");
+      drag.snappedCol = snap.colIndex;
+    }
+    drag.ghostEl.style.transition = "transform 0.12s ease";
+    drag.ghostEl.style.transform = `translate(${snap.left - drag.originRect.left}px, ${snap.top - drag.originRect.top}px)`;
+  } else {
+    if (drag.snappedCol !== null) {
+      clearDropHighlight();
+      drag.snappedCol = null;
+    }
+    drag.ghostEl.style.transition = "none";
+    drag.ghostEl.style.transform = `translate(${dx}px, ${dy}px)`;
+  }
 }
 
 function endDrag() {
   if (!drag) return;
+  clearDropHighlight();
   drag.cardEls.forEach((el) => el.classList.remove("drag-hidden"));
   drag.ghostEl?.remove();
   drag.originEl.removeEventListener("pointermove", handleDragPointerMove);

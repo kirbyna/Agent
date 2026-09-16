@@ -254,10 +254,11 @@
   .center-mark {
     position: absolute;
     inset: 0;
+    top: 38%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 34px;
+    font-size: 27px;
     line-height: 1;
     opacity: 0.92;
     pointer-events: none;
@@ -275,6 +276,12 @@
     outline-offset: -1px;
   }
   .column.hint-target { background: rgba(111, 214, 168, 0.14); border-radius: 6px; }
+  .column.drop-ready {
+    background: rgba(220, 174, 68, 0.18);
+    border-radius: 6px;
+    outline: 2px dashed rgba(220, 174, 68, 0.6);
+    outline-offset: -2px;
+  }
   .card.drag-hidden { visibility: hidden; }
   .card.deal-in { animation: spider-deal-in 0.26s ease-out; }
   @keyframes spider-deal-in {
