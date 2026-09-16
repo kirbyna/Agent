@@ -11,11 +11,18 @@ import {
   GameState,
   hasAnyMove,
   isBoardFullyRevealed,
-  isRedSuit,
   isWon,
   moveRun,
   rankLabel,
+  Suit,
 } from "./core";
+
+const SUIT_COLOR: Record<Suit, string> = {
+  "♠": "var(--black-suit)",
+  "♣": "var(--club-suit)",
+  "♥": "var(--red-suit)",
+  "♦": "var(--diamond-suit)",
+};
 
 function $(id: string): HTMLElement {
   const el = document.getElementById(id);
@@ -412,7 +419,7 @@ function renderTableau() {
 
       if (card.faceUp) {
         const label = rankLabel(card.rank);
-        const suitColor = isRedSuit(card.suit) ? "var(--red-suit)" : "var(--black-suit)";
+        const suitColor = SUIT_COLOR[card.suit];
 
         const idx = document.createElement("span");
         idx.className = label.length > 1 ? "idx wide" : "idx";
@@ -438,8 +445,8 @@ function renderTableau() {
   adjustCardOverlap(tableauEl, maxColumnLength);
 }
 
-const DEFAULT_CARD_OVERLAP = 0.58; // matches the CSS fallback (calc(-1 * var(--card-overlap, 58%)))
-const MAX_CARD_OVERLAP = 0.86; // never shrink the visible sliver below ~14% of a card
+const DEFAULT_CARD_OVERLAP = 0.82; // matches the CSS fallback (calc(-1 * var(--card-overlap, 82%)))
+const MAX_CARD_OVERLAP = 0.9; // never shrink the visible sliver below ~10% of a card
 
 /** Increases card overlap (shrinks the visible sliver) just enough that the tallest
  *  column still fits the tableau's height, instead of running off the bottom. */
@@ -657,7 +664,7 @@ function beginDragVisuals() {
     const label = rankLabel(card.rank);
     const idx = document.createElement("span");
     idx.className = label.length > 1 ? "idx wide" : "idx";
-    idx.style.color = isRedSuit(card.suit) ? "var(--red-suit)" : "var(--black-suit)";
+    idx.style.color = SUIT_COLOR[card.suit];
     idx.innerHTML = `<span>${label}</span><span>${card.suit}</span>`;
     ghostCard.appendChild(idx);
     ghost.appendChild(ghostCard);

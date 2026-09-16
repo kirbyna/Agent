@@ -1,0 +1,304 @@
+@import url("https://fonts.googleapis.com/css2?family=Caprasimo&family=Figtree:wght@400;500;600;700;800&display=swap");
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Spider Solitaire — Organic 테마 (드롭인)
+   대상: kirbyna/Agent @ claude/spider-solitaire-iphone-plan-gm7ehm
+         spider-solitaire/index.html + src/main.ts 의 실제 클래스에 맞춤
+
+   적용: index.html 의 </style> 바로 "아래"에 한 줄 추가 (순서 중요)
+       <link rel="stylesheet" href="/spider-theme.css" />
+   → 마크업/로직 수정 0. 선택적 패치 2건은 파일 맨 아래 주석 참고.
+   ───────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* 펠트 — 세이지 다크 */
+  --felt-900: #1b2113;
+  --felt-800: #2b3320;
+  --felt-radial: #3d472b;
+  --surface: #262e1c;
+  --surface-line: rgba(240, 250, 225, 0.12);
+
+  /* 카드 */
+  --card-face: #f9f4ed;
+  --card-back-1: #c9743d;
+  --card-back-2: #8c491a;
+
+  /* 하단 바 — 나무 대신 따뜻한 테라코타 다크 */
+  --wood-1: #6b3a17;
+  --wood-2: #402310;
+
+  --ink: #2e2b25;
+  --muted: #dcd3c4;
+  --faint: #aebf92;
+
+  /* 강조 — 골드 대신 테라코타 */
+  --gold: #d67f48;
+  --gold-ink: #2e1a0c;
+
+  /* 수트 색 */
+  --red-suit: #8c491a;
+  --black-suit: #2e2b25;
+
+  --font-display: "Caprasimo", Georgia, "Apple SD Gothic Neo", serif;
+  --font-body: "Figtree", "Apple SD Gothic Neo", -apple-system, sans-serif;
+
+  /* 이 테마가 새로 쓰는 값 */
+  --card-r: 9px;
+  --card-edge: rgba(32, 30, 29, 0.14);
+  --card-shadow: 0 1.5px 3px rgba(32, 30, 29, 0.22);
+  --club-suit: #7d8f5f;
+  --diamond-suit: #c9743d;
+}
+
+/* 보드 바탕 — 사선 텍스처 제거, 따뜻한 비네트만 */
+body {
+  background: radial-gradient(120% 90% at 50% -10%, var(--felt-radial), var(--felt-800) 55%, var(--felt-900) 100%);
+  color: var(--muted);
+}
+
+/* ── 태블로 기하 ─────────────────────────────────────────────────────────
+   카드는 그대로 두고 "겹침"만 조여서 숫자 띠(≈21px)를 확보합니다.
+   (main.ts 가 더 조여야 할 때만 이 값을 덮어씁니다) */
+.tableau {
+  --card-overlap: 82%;
+  gap: 3px;
+  padding: 10px 6px 6px;
+}
+
+.column.empty {
+  border: 1.5px dashed rgba(240, 250, 225, 0.17);
+  border-radius: var(--card-r);
+}
+
+/* ── 카드 ───────────────────────────────────────────────────────────────── */
+.card {
+  border-radius: var(--card-r);
+}
+.card.face-up {
+  background: var(--card-face);
+  border: 1px solid var(--card-edge);
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+}
+.card.face-down {
+  background:
+    radial-gradient(circle at 50% 50%, #ccdbb2 1.1px, transparent 1.3px) 0 0 / 6px 6px,
+    linear-gradient(160deg, var(--card-back-1), var(--card-back-2));
+  border: 1px solid #8c491a;
+  box-shadow: inset 0 0 0 2.5px var(--card-back-1), inset 0 0 0 3.5px rgba(240, 250, 225, 0.5);
+}
+
+/* 숫자·수트 띠 — 겹쳐도 읽히는 핵심.
+   가운데 정렬을 좌우 분산으로 바꾸고 숫자를 디스플레이 서체로 키웁니다. */
+.idx {
+  top: 2px;
+  left: 4px;
+  right: 4px;
+  justify-content: space-between;
+  align-items: center;
+  height: 19px;
+  font: 400 19px/1 var(--font-display);
+  letter-spacing: -0.04em;
+}
+.idx span:last-child {
+  font: 800 13px/1 var(--font-body);
+}
+.idx.wide {
+  font-size: 17px;
+  letter-spacing: -0.06em;
+}
+.idx.wide span:last-child {
+  font-size: 12px;
+}
+
+/* 큰 수트 = 워터마크. 완전히 보이는 맨 아래 카드에서만 읽힙니다 */
+.center-mark {
+  inset: auto -5px -12px auto;
+  display: block;
+  font: 400 46px/1 var(--font-body);
+  opacity: 0.13;
+}
+
+/* 상태 */
+.card.selected {
+  outline: 2px solid var(--gold);
+  outline-offset: -1px;
+  transform: translateY(-5px);
+  box-shadow: 0 6px 12px rgba(32, 30, 29, 0.45);
+}
+.card.hint {
+  outline: 2.5px solid #f6a06b;
+  outline-offset: -1px;
+  animation: organic-glow 1.1s ease-in-out infinite;
+}
+@keyframes organic-glow {
+  0%, 100% { box-shadow: var(--card-shadow), 0 0 0 0 rgba(246, 160, 107, 0); }
+  50%      { box-shadow: var(--card-shadow), 0 0 0 4px rgba(246, 160, 107, 0.8); }
+}
+.column.hint-target {
+  background: rgba(174, 191, 146, 0.18);
+  border-radius: var(--card-r);
+}
+.column.drop-ready {
+  background: rgba(214, 127, 72, 0.2);
+  border-radius: var(--card-r);
+  outline: 2px dashed rgba(214, 127, 72, 0.65);
+  outline-offset: -2px;
+}
+.drag-ghost .card {
+  border-radius: var(--card-r);
+  border: 1px solid var(--card-edge);
+  box-shadow: 0 12px 20px rgba(32, 30, 29, 0.5);
+  transform: rotate(2.5deg);
+}
+
+/* ── 상단 바 / 딜 행 ────────────────────────────────────────────────────── */
+.nav-bar,
+.deal-row {
+  background: var(--surface);
+  border-bottom: 1px solid var(--surface-line);
+}
+.nav-btn {
+  font: 400 1rem/1 var(--font-display);
+  color: var(--card-face);
+  padding: 6px 4px;
+}
+.nav-btn:active { color: var(--gold); }
+.chip {
+  font: 700 0.78rem/1 var(--font-body);
+  background: rgba(214, 127, 72, 0.18);
+  color: #f6a06b;
+  border: 1px solid rgba(214, 127, 72, 0.4);
+  padding: 8px 13px;
+}
+.stat-k { color: var(--faint); font: 600 0.66rem/1 var(--font-body); letter-spacing: 0.08em; }
+.stat-v { font: 600 0.88rem/1 var(--font-body); color: var(--card-face); }
+
+/* ── 스톡 더미 ─────────────────────────────────────────────────────────── */
+.stock-card {
+  border-radius: 5px;
+  background:
+    radial-gradient(circle at 50% 50%, #ccdbb2 0.9px, transparent 1.1px) 0 0 / 5px 5px,
+    linear-gradient(160deg, var(--card-back-1), var(--card-back-2));
+  border: 1px solid #8c491a;
+}
+.stock-badge {
+  background: var(--gold);
+  color: #fff2eb;
+  font: 700 10px/18px var(--font-body);
+}
+@keyframes spider-stock-glow {
+  from { box-shadow: 0 0 0 0 rgba(246, 160, 107, 0.55); background: transparent; }
+  to   { box-shadow: 0 0 14px 4px rgba(246, 160, 107, 0.55); background: rgba(246, 160, 107, 0.14); }
+}
+
+/* ── 하단 바 ───────────────────────────────────────────────────────────── */
+.bar-bottom {
+  background: linear-gradient(180deg, var(--wood-1), var(--wood-2));
+  border-top: 1px solid rgba(255, 242, 235, 0.12);
+}
+.hint-action { color: #f9e7d6; border-radius: 999px; }
+.hint-action span { font: 600 0.78rem/1 var(--font-body); }
+.hint-action svg { stroke: #f9e7d6; stroke-width: 2.75; }
+.hint-action:active { background: rgba(255, 242, 235, 0.12); }
+.stat-stack .stat-score {
+  font: 400 1.3rem/1 var(--font-display);
+  color: #ffc6a5;
+}
+.stat-stack .stat-sub { color: #f0d9c4; font: 500 0.78rem/1 var(--font-body); }
+
+.autocomplete-btn {
+  background: var(--gold);
+  color: #fff2eb;
+  font: 700 0.85rem/1 var(--font-body);
+  padding: 12px 20px;
+  box-shadow: 0 8px 18px rgba(32, 30, 29, 0.45);
+}
+
+/* ── 시작 화면 ─────────────────────────────────────────────────────────── */
+.eyebrow { color: #f6a06b; font: 600 11px/1 var(--font-body); letter-spacing: 0.16em; }
+.start-head h1 { font: 400 clamp(2.1rem, 9.5vw, 2.7rem)/1.1 var(--font-display); color: var(--card-face); }
+.lede { color: var(--muted); }
+.tier {
+  border-radius: 20px;
+  border: 1px solid var(--surface-line);
+  background: linear-gradient(180deg, rgba(240, 250, 225, 0.06), rgba(240, 250, 225, 0.02));
+}
+.tier:active { background: rgba(240, 250, 225, 0.1); }
+.tier-name { font: 400 1.08rem/1.2 var(--font-display); }
+.tier-desc { color: var(--faint); font: 400 0.78rem/1.3 var(--font-body); }
+.tier-go {
+  background: var(--gold);
+  color: #fff2eb;
+  font: 700 0.78rem/1 var(--font-body);
+  padding: 8px 14px;
+}
+.tier-glyphs .s-red { color: #f6a06b; }
+.tier-glyphs .s-black { color: var(--card-face); }
+.resume { border-radius: 999px; padding: 14px; font: 600 0.85rem var(--font-body); }
+.resume:not(:disabled) {
+  border: 1px solid rgba(214, 127, 72, 0.5);
+  background: rgba(214, 127, 72, 0.14);
+  color: #f6a06b;
+}
+
+/* ── 토스트 / 결과 오버레이 ───────────────────────────────────────────── */
+.toast {
+  background: rgba(32, 30, 29, 0.88);
+  border: none;
+  color: var(--card-face);
+  font: 600 0.8rem var(--font-body);
+  padding: 9px 16px;
+}
+.overlay { background: rgba(27, 33, 19, 0.86); backdrop-filter: blur(3px); }
+.overlay-card {
+  background: var(--surface);
+  border: 1px solid var(--surface-line);
+  border-radius: 28px;
+  padding: 26px;
+}
+.overlay-title { font: 400 1.5rem/1.2 var(--font-display); color: var(--card-face); }
+.overlay-best {
+  color: #f6a06b;
+  background: rgba(214, 127, 72, 0.14);
+  border: 1px solid rgba(214, 127, 72, 0.32);
+  border-radius: 14px;
+  font: 600 0.8rem/1.4 var(--font-body);
+}
+.overlay-btn { border-radius: 999px; padding: 14px; font: 700 0.9rem var(--font-body); }
+.overlay-btn.primary { background: var(--gold); color: #fff2eb; }
+.overlay-btn.ghost {
+  background: rgba(240, 250, 225, 0.06);
+  color: var(--card-face);
+  border: 1px solid var(--surface-line);
+}
+
+/* 포커스 링 — 브라우저 기본 파란 링 금지 */
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   선택적 소스 패치 2건 (없어도 테마는 동작합니다)
+
+   [1] 4수트에서 수트별 4색 쓰기 — src/main.ts
+       현재: const suitColor = isRedSuit(card.suit) ? "var(--red-suit)" : "var(--black-suit)";
+       변경: const SUIT_COLOR: Record<Suit, string> = {
+               "♠": "var(--black-suit)",
+               "♣": "var(--club-suit)",
+               "♥": "var(--red-suit)",
+               "♦": "var(--diamond-suit)",
+             };
+             const suitColor = SUIT_COLOR[card.suit];
+       (drag-ghost 를 만드는 beginDragVisuals 안의 같은 줄도 함께 바꿔주세요)
+       → 검정/빨강 2색만으로는 4수트 구분이 어려워, 세이지(♣)와
+         밝은 테라코타(♦)를 더해 네 색으로 나눕니다.
+
+   [2] 겹침 기본값을 이 디자인과 일치시키기 — src/main.ts
+       DEFAULT_CARD_OVERLAP: 0.58 → 0.82
+       MAX_CARD_OVERLAP:     0.86 → 0.9
+       → 노출 띠가 약 21px 로 고정되어 숫자 19px 가 항상 보입니다.
+         (CSS 만 적용해도 첫 렌더는 82% 로 나오지만, JS 가 다시 계산할 때
+          0.58 로 되돌아가므로 값을 맞추는 편이 안전합니다)
+
+   [3] 폰트 — index.html 의 Fraunces / IBM Plex Sans <link> 는 지워도 됩니다.
+       이 파일 첫 줄의 @import 가 Caprasimo + Figtree 를 불러옵니다.
+   ───────────────────────────────────────────────────────────────────────── */
