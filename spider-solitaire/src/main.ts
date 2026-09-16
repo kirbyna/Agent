@@ -110,6 +110,11 @@ function playWinSound() {
   [523, 659, 784, 1047].forEach((f, i) => window.setTimeout(() => playTone(f, 200, "sine", 0.055), i * 120));
 }
 
+/** Short haptic buzz for a completed K..A run, on devices/browsers that support it. */
+function vibrateOnCollect() {
+  navigator.vibrate?.(60);
+}
+
 function updateSoundButton() {
   const btn = $("btn-sound");
   btn.classList.toggle("muted", !soundEnabled);
@@ -308,7 +313,7 @@ function snapshotTableauCards(): Map<string, CardSnapshot> {
  * the stock pile's position, staggered by column. A card that vanished entirely (a completed
  * K..A run being collected) flies up and fades out from where it sat.
  */
-function animateTableauChanges(before: Map<string, CardSnapshot>, stockRect: DOMRect | null) {
+function animateTableauChanges(before: Map<string, CardSnapshot>, stockRect: DOMRect | null, collectColIndex: number | null) {
   const seenIds = new Set<string>();
   let dealIndex = 0;
 
@@ -360,14 +365,23 @@ function animateTableauChanges(before: Map<string, CardSnapshot>, stockRect: DOM
     });
   });
 
+  // A completed run always ends up piled in the destination column (moveRun appends the
+  // moved run onto it before collecting), so anchor every disappearing card's fly-away
+  // there instead of at its own pre-move position — otherwise the moved portion (still at
+  // its old source-column spot in this snapshot) and the portion already resident in the
+  // destination flicker away from two different columns at once.
+  const collectColEl =
+    collectColIndex !== null ? document.querySelector<HTMLElement>(`.column[data-col="${collectColIndex}"]`) : null;
+  const collectRect = collectColEl?.getBoundingClientRect() ?? null;
+
   before.forEach((snap, id) => {
     if (seenIds.has(id)) return;
     const clone = snap.clone;
     clone.className = "card face-up collect-fly";
     clone.style.position = "fixed";
     clone.style.margin = "0";
-    clone.style.left = `${snap.rect.left}px`;
-    clone.style.top = `${snap.rect.top}px`;
+    clone.style.left = `${collectRect ? collectRect.left : snap.rect.left}px`;
+    clone.style.top = `${collectRect ? collectRect.top : snap.rect.top}px`;
     clone.style.width = `${snap.rect.width}px`;
     clone.style.height = `${snap.rect.height}px`;
     document.body.appendChild(clone);
@@ -380,7 +394,7 @@ function animateTableauChanges(before: Map<string, CardSnapshot>, stockRect: DOM
   });
 }
 
-function renderAnimated() {
+function renderAnimated(collectColIndex: number | null = null) {
   if (prefersReducedMotion()) {
     render();
     return;
@@ -389,7 +403,7 @@ function renderAnimated() {
   const stockBtn = document.getElementById("btn-stock") as HTMLButtonElement | null;
   const stockRect = stockBtn && stockBtn.style.visibility !== "hidden" ? stockBtn.getBoundingClientRect() : null;
   render();
-  animateTableauChanges(before, stockRect);
+  animateTableauChanges(before, stockRect, collectColIndex);
 }
 
 function renderTableau() {
@@ -486,8 +500,18 @@ function currentCardOverlapFraction(): number {
 
 function renderStock() {
   const rounds = Math.floor(state!.stock.length / 10);
-  $("stock-count").textContent = String(rounds);
-  ($("btn-stock") as HTMLButtonElement).style.visibility = rounds > 0 ? "visible" : "hidden";
+  const btn = $("btn-stock") as HTMLButtonElement;
+  btn.style.visibility = rounds > 0 ? "visible" : "hidden";
+  btn.setAttribute("aria-label", `스톡에서 카드 배분 (${rounds}벌 남음)`);
+
+  const stockCardsEl = $("stock-cards");
+  stockCardsEl.innerHTML = "";
+  for (let i = 0; i < rounds; i++) {
+    const cardEl = document.createElement("span");
+    cardEl.className = "stock-card";
+    cardEl.style.transform = `translate(${i * 4}px, ${(rounds - 1 - i) * 2}px)`;
+    stockCardsEl.appendChild(cardEl);
+  }
 }
 
 function showResult(title: string) {
@@ -535,9 +559,14 @@ function commitMove(fromCol: number, cardIndex: number, toCol: number): boolean 
   selection = null;
   history.push(prev);
   state = next;
-  renderAnimated();
-  if (next.completedSuits.length > prev.completedSuits.length) playCollectSound();
-  else playMoveSound();
+  const completed = next.completedSuits.length > prev.completedSuits.length;
+  renderAnimated(completed ? toCol : null);
+  if (completed) {
+    playCollectSound();
+    vibrateOnCollect();
+  } else {
+    playMoveSound();
+  }
   checkGameEnd();
   return true;
 }
@@ -576,9 +605,14 @@ function handleTableauClick(event: MouseEvent) {
     selection = null;
     history.push(prev);
     state = next;
-    renderAnimated();
-    if (next.completedSuits.length > prev.completedSuits.length) playCollectSound();
-    else playMoveSound();
+    const completed = next.completedSuits.length > prev.completedSuits.length;
+    renderAnimated(completed ? colIndex : null);
+    if (completed) {
+      playCollectSound();
+      vibrateOnCollect();
+    } else {
+      playMoveSound();
+    }
     checkGameEnd();
     return;
   }
@@ -807,6 +841,10 @@ function handleStockClick() {
   selection = null;
   renderAnimated();
   playDealSound();
+  if (next.completedSuits.length > prev.completedSuits.length) {
+    playCollectSound();
+    vibrateOnCollect();
+  }
   checkGameEnd();
 }
 
