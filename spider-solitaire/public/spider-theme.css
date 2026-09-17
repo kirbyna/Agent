@@ -20,8 +20,8 @@
 
   /* 카드 */
   --card-face: #ffffff;
-  --card-back-1: #c9313a;
-  --card-back-2: #8f1a22;
+  --card-back-1: #c0272f;
+  --card-back-2: #7d1419;
 
   /* 하단 바 — 나무 대신 따뜻한 테라코타 다크 */
   --wood-1: #0d5524;
@@ -45,6 +45,9 @@
   /* 이 테마가 새로 쓰는 값 */
   --card-r: 5px;
   --card-back-edge: #7d1419;
+  /* 태블로 카드와 동일 계산: (화면폭 − .tableau 좌우패딩 12 − gap 3×9) / 10 */
+  --stock-card-w: calc((100vw - 39px) / 10);
+  --stock-step: calc(var(--stock-card-w) * 0.34);
   /* 뒷면 로고 — public/ 에 파일을 넣고 아래 한 줄만 켜면 됩니다
      --card-logo: url("/card-logo.svg"); */
   --card-logo-size: 58%;
@@ -63,8 +66,8 @@ body {
    카드는 그대로 두고 "겹침"만 조여서 숫자 띠(≈21px)를 확보합니다.
    (main.ts 가 더 조여야 할 때만 이 값을 덮어씁니다) */
 .tableau {
-  --card-overlap: 76%;
-  gap: 1px;
+  --card-overlap: 82%;
+  gap: 3px;
   padding: 10px 6px 6px;
 }
 
@@ -85,8 +88,8 @@ body {
 }
 .card.face-down {
   background:
-    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.17) 0 3px, transparent 3px 6px),
-    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.17) 0 3px, transparent 3px 6px),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.13) 0 1.5px, transparent 1.5px 7px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.13) 0 1.5px, transparent 1.5px 7px),
     linear-gradient(160deg, var(--card-back-1), var(--card-back-2));
   border: 1px solid var(--card-back-edge);
   position: relative;
@@ -138,7 +141,7 @@ body {
   inset: 22px 0 auto 0;
   display: block;
   text-align: center;
-  font: 900 36px/1 var(--font-body);
+  font: 400 34px/1 var(--font-body);
   opacity: 1;
 }
 
@@ -176,10 +179,20 @@ body {
 }
 
 /* ── 상단 바 / 딜 행 ────────────────────────────────────────────────────── */
-.nav-bar,
+/* ── 상단 헤더 — 두 줄을 한 덩어리로 붙여 공백을 줄입니다 ─────────────────
+   :root 가 이미 env(safe-area-inset-top) 을 넣는데 .nav-bar 가
+   padding-top: max(10px, env(safe-area-inset-top)) 로 한 번 더 넣어서
+   아이폰 사파리에서 안전영역이 두 번 계산되고 있었습니다. 여기서 끊습니다. */
+.nav-bar {
+  padding: 7px 14px;
+  background: var(--surface);
+  border-bottom: none;
+}
 .deal-row {
+  padding: 5px 14px 7px;
   background: var(--surface);
   border-bottom: 1px solid var(--surface-line);
+  align-items: flex-end;
 }
 .nav-btn {
   font: 400 1rem/1 var(--font-display);
@@ -198,13 +211,42 @@ body {
 .stat-v { font: 600 0.88rem/1 var(--font-body); color: var(--card-face); }
 
 /* ── 스톡 더미 ─────────────────────────────────────────────────────────── */
+/* ── 스톡(남은 덱) — 태블로 카드와 같은 크기로, 가로로 겹쳐 부채꼴 ─────────
+   .stock-card 하나가 남은 덱 한 벌입니다(3벌 남으면 카드 3장).
+   태블로 카드 폭과 같은 식으로 계산하므로 화면 폭이 달라져도 어긋나지 않습니다. */
+.stock {
+  padding: 0;
+  border-radius: var(--card-r);
+}
+/* 부채꼴을 오른쪽에 고정합니다. 남은 벌수가 줄어도 오른쪽 여백이 벌어지지 않게
+   컨테이너를 폭 0 으로 두고 카드를 오른쪽 기준으로 왼쪽으로 쌓습니다. */
+.stock-cards {
+  width: var(--stock-card-w);
+  height: calc(var(--stock-card-w) * 7 / 5);
+}
 .stock-card {
-  border-radius: 5px;
+  top: 0;
+  width: var(--stock-card-w);
+  height: calc(var(--stock-card-w) * 7 / 5);
+  aspect-ratio: auto;
+  /* main.ts 가 inline transform 으로 4px 씩 밀어두는 것을 끊고, 여기서 다시 겹칩니다 */
+  transform: none !important;
+}
+/* 마지막 카드가 항상 오른쪽 끝(right:0)에 오고, 앞쪽 카드들이 왼쪽으로 물러납니다 */
+.stock-card { left: auto; right: 0; }
+.stock-card:nth-last-child(2) { right: var(--stock-step); }
+.stock-card:nth-last-child(3) { right: calc(2 * var(--stock-step)); }
+.stock-card:nth-last-child(4) { right: calc(3 * var(--stock-step)); }
+.stock-card:nth-last-child(5) { right: calc(4 * var(--stock-step)); }
+
+.stock-card {
+  border-radius: var(--card-r);
   background:
-    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.17) 0 3px, transparent 3px 6px),
-    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.17) 0 3px, transparent 3px 6px),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.13) 0 1.5px, transparent 1.5px 7px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.13) 0 1.5px, transparent 1.5px 7px),
     linear-gradient(160deg, var(--card-back-1), var(--card-back-2));
-  border: 1px solid #7d1419;
+  border: 1px solid var(--card-back-edge);
+  box-shadow: -1px 0 2px rgba(0, 0, 0, 0.28);
 }
 .stock-card::after {
   content: "";
@@ -319,9 +361,9 @@ body {
        (기존 isRedSuit() 2색 분기를 그대로 두세요. 토큰만 바뀝니다:
         --red-suit #c8102e, --black-suit #111111)
 
-   [2] 겹침 기본값을 이 디자인과 일치시키기 — src/main.ts
-       DEFAULT_CARD_OVERLAP: 0.58 → 0.82
-       MAX_CARD_OVERLAP:     0.86 → 0.9
+   [2] 겹침 기본값 — src/main.ts (이미 0.76 / 0.9 이면 그대로 두세요)
+       DEFAULT_CARD_OVERLAP: 0.82
+       MAX_CARD_OVERLAP:     0.9
        → 노출 띠가 약 21px 로 고정되어 숫자 19px 가 항상 보입니다.
          (CSS 만 적용해도 첫 렌더는 82% 로 나오지만, JS 가 다시 계산할 때
           0.58 로 되돌아가므로 값을 맞추는 편이 안전합니다)
