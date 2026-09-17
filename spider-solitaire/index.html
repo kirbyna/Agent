@@ -356,6 +356,7 @@
     background: rgba(6, 20, 12, 0.72);
     padding: 24px;
     z-index: 10;
+    overflow: hidden;
   }
   .overlay-card {
     width: 100%;
@@ -368,7 +369,13 @@
     flex-direction: column;
     gap: 14px;
     text-align: center;
+    animation: spider-overlay-pop 0.32s cubic-bezier(0.22, 1, 0.36, 1);
   }
+  @keyframes spider-overlay-pop {
+    from { opacity: 0; transform: scale(0.88) translateY(10px); }
+    to { opacity: 1; transform: none; }
+  }
+  .result-icon { font-size: 2.6rem; line-height: 1; }
   .overlay-title { margin: 0; font: 700 1.4rem/1.2 var(--font-display); }
   .overlay-stats { display: flex; justify-content: center; gap: 18px; }
   .overlay-stats .stat-v { font-size: 1rem; }
@@ -381,6 +388,14 @@
     border-radius: 10px;
     padding: 8px 10px;
   }
+  .result-rank {
+    margin: 0;
+    font: 700 0.85rem/1.4 var(--font-body);
+    color: var(--gold-ink);
+    background: var(--gold);
+    border-radius: 10px;
+    padding: 8px 10px;
+  }
   .overlay-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
   .overlay-btn {
     border: none;
@@ -390,6 +405,87 @@
   }
   .overlay-btn.primary { background: var(--gold); color: var(--gold-ink); }
   .overlay-btn.ghost { background: rgba(255,255,255,0.06); color: var(--card-face); border: 1px solid var(--surface-line); }
+
+  .confetti-piece {
+    position: absolute;
+    top: -12px;
+    width: 8px;
+    height: 14px;
+    z-index: 11;
+    pointer-events: none;
+    animation: spider-confetti-fall linear forwards;
+  }
+  @keyframes spider-confetti-fall {
+    from { transform: translateY(0) rotate(0deg); opacity: 1; }
+    to { transform: translateY(320px) rotate(540deg); opacity: 0; }
+  }
+
+  .rankings-link {
+    background: transparent;
+    border: none;
+    color: var(--faint);
+    font: 600 0.85rem var(--font-body);
+    padding: 6px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .rank-tabs {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--surface-line);
+  }
+  .rank-tab {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--surface-line);
+    color: var(--faint);
+    border-radius: 999px;
+    padding: 8px 4px;
+    font: 600 0.78rem/1 var(--font-body);
+  }
+  .rank-tab.active {
+    background: var(--gold);
+    color: var(--gold-ink);
+    border-color: var(--gold);
+  }
+  .rank-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .rank-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--surface-line);
+    border-radius: 12px;
+    padding: 10px 14px;
+  }
+  .rank-pos {
+    min-width: 26px;
+    text-align: center;
+    font: 700 1rem/1 var(--font-display);
+    color: var(--faint);
+  }
+  .rank-row.top1 .rank-pos { color: #f2c230; }
+  .rank-row.top2 .rank-pos { color: #d7d7d7; }
+  .rank-row.top3 .rank-pos { color: #c98a4b; }
+  .rank-info { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .rank-score { font: 700 1.05rem/1 var(--font-display); color: var(--card-face); }
+  .rank-meta { font: 500 0.75rem/1 var(--font-body); color: var(--faint); }
+  .rank-empty {
+    text-align: center;
+    color: var(--faint);
+    font: 500 0.85rem var(--font-body);
+    padding: 40px 20px;
+  }
 
   .bar-bottom {
     flex: 0 0 auto;
@@ -507,6 +603,7 @@
         </div>
 
         <button class="resume" id="btn-resume" disabled>이어하기 · 저장된 게임 없음</button>
+        <button class="rankings-link" id="btn-rankings">🏆 역대 순위 보기</button>
       </div>
     </section>
 
@@ -552,6 +649,7 @@
 
       <div class="overlay" id="result-overlay" hidden>
         <div class="overlay-card">
+          <div class="result-icon" id="result-icon">🏆</div>
           <h2 class="overlay-title" id="result-title">승리!</h2>
           <div class="overlay-stats">
             <span class="stat"><span class="stat-k">시간</span><span class="stat-v" id="result-time">00:00</span></span>
@@ -559,12 +657,29 @@
             <span class="stat"><span class="stat-k">점수</span><span class="stat-v" id="result-score">500</span></span>
           </div>
           <p class="overlay-best" id="overlay-best" hidden></p>
+          <p class="result-rank" id="result-rank" hidden></p>
           <div class="overlay-actions">
             <button class="overlay-btn primary" id="btn-retry">같은 난이도로 다시</button>
+            <button class="overlay-btn ghost" id="btn-view-rankings">순위 보기</button>
             <button class="overlay-btn ghost" id="btn-change-level">난이도 변경</button>
           </div>
         </div>
       </div>
+    </section>
+
+    <section id="screen-rankings" class="screen">
+      <header class="nav-bar">
+        <button class="nav-btn" id="btn-rankings-back" aria-label="시작 화면으로 돌아가기">‹ 뒤로</button>
+        <span class="chip">순위</span>
+        <div class="nav-group"></div>
+      </header>
+      <div class="rank-tabs">
+        <button class="rank-tab active" data-filter="all">전체</button>
+        <button class="rank-tab" data-filter="easy">쉬움</button>
+        <button class="rank-tab" data-filter="medium">보통</button>
+        <button class="rank-tab" data-filter="hard">어려움</button>
+      </div>
+      <div class="rank-list" id="rank-list"></div>
     </section>
   </div>
 

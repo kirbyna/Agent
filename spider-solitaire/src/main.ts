@@ -167,6 +167,118 @@ function recordWin(difficulty: Difficulty, score: number, timeSeconds: number) {
   return { best: next, isNewRecord: isNewScore || isNewTime };
 }
 
+/* ---------------- Win history / rankings ---------------- */
+
+const HISTORY_KEY = "spider-solitaire:history:v1";
+const MAX_HISTORY_ENTRIES = 50;
+const RANKING_BADGE_CUTOFF = 10;
+
+interface GameRecord {
+  difficulty: Difficulty;
+  score: number;
+  timeSeconds: number;
+  moves: number;
+  date: number;
+}
+
+function loadHistory(): GameRecord[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    return raw ? (JSON.parse(raw) as GameRecord[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(records: GameRecord[]) {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(records));
+  } catch {
+    // ignore
+  }
+}
+
+/** Appends a win, re-sorts by score (then time) and trims the list, returning
+ *  the trimmed list plus this game's 1-based rank among same-difficulty wins
+ *  (null once it falls outside the kept history, e.g. beyond MAX_HISTORY_ENTRIES). */
+function recordHistory(record: GameRecord): { records: GameRecord[]; rank: number | null } {
+  const records = loadHistory();
+  records.push(record);
+  records.sort((a, b) => b.score - a.score || a.timeSeconds - b.timeSeconds);
+  const trimmed = records.slice(0, MAX_HISTORY_ENTRIES);
+  saveHistory(trimmed);
+  const sameDifficulty = trimmed.filter((r) => r.difficulty === record.difficulty);
+  const index = sameDifficulty.indexOf(record);
+  return { records: trimmed, rank: index === -1 ? null : index + 1 };
+}
+
+function formatShortDate(timestamp: number): string {
+  const d = new Date(timestamp);
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+function renderRankings(filter: "all" | Difficulty) {
+  const records = loadHistory()
+    .filter((r) => filter === "all" || r.difficulty === filter)
+    .sort((a, b) => b.score - a.score || a.timeSeconds - b.timeSeconds);
+
+  const listEl = $("rank-list");
+  listEl.innerHTML = "";
+
+  if (records.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "rank-empty";
+    empty.textContent = "아직 기록이 없어요. 한 판 클리어해보세요!";
+    listEl.appendChild(empty);
+    return;
+  }
+
+  records.forEach((record, i) => {
+    const row = document.createElement("div");
+    const pos = i + 1;
+    row.className = `rank-row${pos <= 3 ? ` top${pos}` : ""}`;
+
+    const posEl = document.createElement("span");
+    posEl.className = "rank-pos";
+    posEl.textContent = String(pos);
+
+    const info = document.createElement("div");
+    info.className = "rank-info";
+    const scoreEl = document.createElement("span");
+    scoreEl.className = "rank-score";
+    scoreEl.textContent = `${record.score}점`;
+    const metaEl = document.createElement("span");
+    metaEl.className = "rank-meta";
+    metaEl.textContent = `${difficultyLabel(record.difficulty)} · ${formatMMSS(record.timeSeconds)} · ${formatShortDate(record.date)}`;
+    info.append(scoreEl, metaEl);
+
+    row.append(posEl, info);
+    listEl.appendChild(row);
+  });
+}
+
+function setRankingsFilter(filter: string) {
+  document.querySelectorAll<HTMLElement>(".rank-tab").forEach((tab) => {
+    tab.classList.toggle("active", tab.dataset.filter === filter);
+  });
+  renderRankings(filter as "all" | Difficulty);
+}
+
+function spawnConfetti() {
+  const colors = ["#f2c230", "#c8102e", "#eaf5ea", "#2aa04c"];
+  const overlay = $("result-overlay");
+  for (let i = 0; i < 24; i++) {
+    const piece = document.createElement("span");
+    piece.className = "confetti-piece";
+    piece.style.left = `${Math.random() * 100}%`;
+    piece.style.background = colors[i % colors.length]!;
+    piece.style.animationDuration = `${900 + Math.random() * 500}ms`;
+    piece.style.animationDelay = `${Math.random() * 200}ms`;
+    overlay.appendChild(piece);
+    piece.addEventListener("animationend", () => piece.remove(), { once: true });
+  }
+}
+
 function formatMMSS(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
   const s = (totalSeconds % 60).toString().padStart(2, "0");
@@ -514,12 +626,14 @@ function renderStock() {
   }
 }
 
-function showResult(title: string) {
+function showResult(title: string, isWin: boolean) {
   $("result-title").textContent = title;
   $("result-time").textContent = formatMMSS(elapsedSeconds);
   $("result-moves").textContent = String(state!.moves);
   $("result-score").textContent = String(state!.score);
+  $("result-icon").textContent = isWin ? "🏆" : "🕸️";
   ($("result-overlay") as HTMLElement).hidden = false;
+  if (isWin) spawnConfetti();
 }
 
 function checkGameEnd() {
@@ -534,14 +648,31 @@ function checkGameEnd() {
       best.bestTimeSeconds
     )} · ${best.wins}승`;
     bestEl.hidden = false;
-    showResult("승리!");
+
+    const { rank } = recordHistory({
+      difficulty: state.difficulty,
+      score: state.score,
+      timeSeconds: elapsedSeconds,
+      moves: state.moves,
+      date: Date.now(),
+    });
+    const rankEl = $("result-rank");
+    if (rank !== null && rank <= RANKING_BADGE_CUTOFF) {
+      rankEl.textContent = `${difficultyLabel(state.difficulty)} 역대 ${rank}위!`;
+      rankEl.hidden = false;
+    } else {
+      rankEl.hidden = true;
+    }
+
+    showResult("승리!", true);
     return;
   }
   $("overlay-best").hidden = true;
+  $("result-rank").hidden = true;
   if (!hasAnyMove(state)) {
     stopTimer();
     clearSavedGame();
-    showResult("더 이상 이동할 수 없어요");
+    showResult("더 이상 이동할 수 없어요", false);
   }
 }
 
@@ -969,6 +1100,22 @@ $("btn-change-level").addEventListener("click", () => {
   stopTimer();
   refreshResumeButton();
   showScreen("screen-start");
+});
+
+$("btn-rankings").addEventListener("click", () => {
+  setRankingsFilter("all");
+  showScreen("screen-rankings");
+});
+$("btn-view-rankings").addEventListener("click", () => {
+  setRankingsFilter("all");
+  showScreen("screen-rankings");
+});
+$("btn-rankings-back").addEventListener("click", () => {
+  refreshResumeButton();
+  showScreen("screen-start");
+});
+document.querySelectorAll<HTMLElement>(".rank-tab").forEach((tab) => {
+  tab.addEventListener("click", () => setRankingsFilter(tab.dataset.filter!));
 });
 
 refreshResumeButton();
