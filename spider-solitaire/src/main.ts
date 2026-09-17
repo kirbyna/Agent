@@ -6,8 +6,9 @@ import {
   dealNewGame,
   Difficulty,
   difficultyLabel,
+  findAllHints,
+  findAutoCompletePlan,
   findAutoTarget,
-  findHint,
   GameState,
   hasAnyMove,
   isBoardFullyRevealed,
@@ -48,6 +49,9 @@ let toastTimer: number | null = null;
 let drag: DragState | null = null;
 let suppressNextClick = false;
 let autoCompleting = false;
+let hintTimer: number | null = null;
+let hintIndex = 0;
+let hintStateRef: GameState | null = null;
 
 /* ---------------- Sound ---------------- */
 
@@ -1003,22 +1007,25 @@ function handleTableauDoubleClick(event: MouseEvent) {
 
 function handleAutoCompleteClick() {
   if (!state || autoCompleting) return;
+
+  const plan = findAutoCompletePlan(state);
+  if (!plan) {
+    showToast("지금은 자동 정리를 끝까지 진행할 수 없어요");
+    return;
+  }
+
   autoCompleting = true;
   updateAutoCompleteVisibility();
 
+  let stepIndex = 0;
   const step = () => {
-    if (!state) {
-      autoCompleting = false;
-      return;
-    }
-    const hint = findHint(state);
-    if (!hint || hint.type !== "move") {
+    if (!state || stepIndex >= plan.length) {
       autoCompleting = false;
       updateAutoCompleteVisibility();
-      checkGameEnd();
       return;
     }
-    const success = commitMove(hint.fromCol, hint.cardIndex, hint.toCol);
+    const move = plan[stepIndex++]!;
+    const success = commitMove(move.fromCol, move.cardIndex, move.toCol);
     if (!success || isWon(state)) {
       autoCompleting = false;
       updateAutoCompleteVisibility();
@@ -1029,17 +1036,34 @@ function handleAutoCompleteClick() {
   step();
 }
 
+function clearHintHighlight() {
+  document.querySelectorAll<HTMLElement>(".card.hint").forEach((el) => el.classList.remove("hint"));
+  document.querySelectorAll<HTMLElement>(".column.hint-target").forEach((el) => el.classList.remove("hint-target"));
+  $("btn-stock").classList.remove("hint");
+}
+
 function handleHintClick() {
   if (!state || autoCompleting) return;
-  const hint = findHint(state);
-  if (!hint) {
+
+  if (state !== hintStateRef) {
+    hintStateRef = state;
+    hintIndex = 0;
+  }
+
+  const hints = findAllHints(state);
+  if (hints.length === 0) {
     showToast("가능한 이동이 없습니다");
     return;
   }
+  const hint = hints[hintIndex % hints.length]!;
+  hintIndex++;
+
+  if (hintTimer !== null) window.clearTimeout(hintTimer);
+  clearHintHighlight();
+
   if (hint.type === "deal") {
-    const stockBtn = $("btn-stock");
-    stockBtn.classList.add("hint");
-    window.setTimeout(() => stockBtn.classList.remove("hint"), 1200);
+    $("btn-stock").classList.add("hint");
+    hintTimer = window.setTimeout(clearHintHighlight, 1200);
     return;
   }
   const columns = document.querySelectorAll<HTMLElement>(".column");
@@ -1049,10 +1073,7 @@ function handleHintClick() {
     if (Number(cardEl.dataset.index) >= hint.cardIndex) cardEl.classList.add("hint");
   });
   toColEl?.classList.add("hint-target");
-  window.setTimeout(() => {
-    fromColEl?.querySelectorAll<HTMLElement>(".card").forEach((cardEl) => cardEl.classList.remove("hint"));
-    toColEl?.classList.remove("hint-target");
-  }, 1200);
+  hintTimer = window.setTimeout(clearHintHighlight, 1200);
 }
 
 document.querySelectorAll<HTMLElement>(".tier").forEach((btn) => {

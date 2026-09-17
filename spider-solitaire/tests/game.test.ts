@@ -3,6 +3,8 @@ import { mulberry32 } from "../src/core/deck";
 import {
   dealFromStock,
   dealNewGame,
+  findAllHints,
+  findAutoCompletePlan,
   findAutoTarget,
   findHint,
   hasAnyMove,
@@ -217,6 +219,87 @@ describe("findHint", () => {
       stock: [],
     });
     expect(findHint(state)).toBeNull();
+  });
+});
+
+describe("findAllHints", () => {
+  it("returns one hint per source column with a legal target, in column order", () => {
+    // No empty columns and no other accidental rank+1 matches, so only the two
+    // intended pairs (9->10, 4->5) are legal — every other card is a dead end.
+    const state = baseState({
+      tableau: [
+        [card(9, "♠")],
+        [card(10, "♥")],
+        [card(4, "♣")],
+        [card(5, "♠")],
+        [card(2, "♦")],
+        [card(2, "♣")],
+        [card(2, "♥")],
+        [card(2, "♠")],
+        [card(13, "♦")],
+        [card(13, "♣")],
+      ],
+    });
+    expect(findAllHints(state)).toEqual([
+      { type: "move", fromCol: 0, cardIndex: 0, toCol: 1 },
+      { type: "move", fromCol: 2, cardIndex: 0, toCol: 3 },
+    ]);
+  });
+
+  it("appends a deal hint when a stock deal is also available", () => {
+    const state = baseState({
+      tableau: [
+        [card(9, "♠")],
+        [card(10, "♥")],
+        [card(2, "♦")],
+        [card(2, "♣")],
+        [card(2, "♥")],
+        [card(2, "♠")],
+        [card(13, "♦")],
+        [card(13, "♣")],
+        [card(13, "♥")],
+        [card(13, "♠")],
+      ],
+      stock: Array.from({ length: 10 }, () => card(1, "♥", false)),
+    });
+    expect(findAllHints(state)).toEqual([
+      { type: "move", fromCol: 0, cardIndex: 0, toCol: 1 },
+      { type: "deal" },
+    ]);
+  });
+
+  it("returns an empty list when the game is stuck", () => {
+    const state = baseState({
+      tableau: Array.from({ length: 10 }, () => [card(2, "♠")]),
+      stock: [],
+    });
+    expect(findAllHints(state)).toEqual([]);
+  });
+});
+
+describe("findAutoCompletePlan", () => {
+  it("finds a move sequence that fully clears an already-organized board", () => {
+    const spades = Array.from({ length: 13 }, (_, i) => card(13 - i, "♠"));
+    const state = baseState({
+      tableau: [spades.slice(0, 12), [spades[12]!], ...Array.from({ length: 8 }, () => [])],
+    });
+    const plan = findAutoCompletePlan(state);
+    expect(plan).not.toBeNull();
+
+    let current = state;
+    for (const move of plan!) {
+      const next = moveRun(current, move.fromCol, move.cardIndex, move.toCol);
+      expect(next).not.toBeNull();
+      current = next!;
+    }
+    expect(current.tableau.every((column) => column.length === 0)).toBe(true);
+  });
+
+  it("returns null when the board can never be fully cleared", () => {
+    const state = baseState({
+      tableau: Array.from({ length: 10 }, () => [card(2, "♠")]),
+    });
+    expect(findAutoCompletePlan(state)).toBeNull();
   });
 });
 

@@ -119,8 +119,11 @@ export function isWon(state: GameState): boolean {
 
 export type HintMove = { type: "move"; fromCol: number; cardIndex: number; toCol: number } | { type: "deal" };
 
-/** Finds one legal move to suggest, preferring a tableau move over a stock deal. Null if the game is stuck. */
-export function findHint(state: GameState): HintMove | null {
+/** Finds every distinct movable-card hint currently available — one per source column with a
+ *  legal target, in column order — plus a trailing stock-deal hint if one is available. Lets
+ *  the hint button cycle through options instead of only ever pointing at the first one. */
+export function findAllHints(state: GameState): HintMove[] {
+  const hints: HintMove[] = [];
   for (let from = 0; from < state.tableau.length; from++) {
     const column = state.tableau[from]!;
     const runLength = getMovableRunLength(column);
@@ -130,11 +133,18 @@ export function findHint(state: GameState): HintMove | null {
     for (let to = 0; to < state.tableau.length; to++) {
       if (to === from) continue;
       if (canPlaceRun(run, state.tableau[to]!)) {
-        return { type: "move", fromCol: from, cardIndex, toCol: to };
+        hints.push({ type: "move", fromCol: from, cardIndex, toCol: to });
+        break;
       }
     }
   }
-  return dealFromStock(state) !== null ? { type: "deal" } : null;
+  if (dealFromStock(state) !== null) hints.push({ type: "deal" });
+  return hints;
+}
+
+/** Finds one legal move to suggest, preferring a tableau move over a stock deal. Null if the game is stuck. */
+export function findHint(state: GameState): HintMove | null {
+  return findAllHints(state)[0] ?? null;
 }
 
 /** True if any tableau-to-tableau move or stock deal is currently available. */
@@ -155,6 +165,62 @@ export function hasAnyMove(state: GameState): boolean {
 /** True once the stock is empty and every card on the board is face-up — nothing left to discover. */
 export function isBoardFullyRevealed(state: GameState): boolean {
   return state.stock.length === 0 && state.tableau.every((column) => column.every((card) => card.faceUp));
+}
+
+export type AutoCompleteMove = { fromCol: number; cardIndex: number; toCol: number };
+
+/**
+ * Finds a sequence of tableau-only moves that fully clears the board, for use once
+ * isBoardFullyRevealed is true (no more hidden information, nothing left to deal).
+ * findHint's single first-legal-move suggestion isn't enough to drive "자동 정리": greedily
+ * always taking the first legal move often dead-ends on a board that's still fully clearable
+ * with a different move order. This backtracks instead, trying moves onto a same-suit top
+ * card first (since that's the direction that eventually completes a run) and bailing out
+ * once nodeBudget positions have been explored, returning null rather than searching forever
+ * on a board that turns out not to be clearable after all.
+ */
+export function findAutoCompletePlan(state: GameState, nodeBudget = 8000): AutoCompleteMove[] | null {
+  let nodesExplored = 0;
+  const path: AutoCompleteMove[] = [];
+
+  function candidateMoves(current: GameState): (AutoCompleteMove & { score: number })[] {
+    const moves: (AutoCompleteMove & { score: number })[] = [];
+    for (let from = 0; from < current.tableau.length; from++) {
+      const column = current.tableau[from]!;
+      const runLength = getMovableRunLength(column);
+      if (runLength === 0) continue;
+      const cardIndex = column.length - runLength;
+      const run = column.slice(cardIndex);
+      const runBottom = run[0]!;
+      for (let to = 0; to < current.tableau.length; to++) {
+        if (to === from) continue;
+        const target = current.tableau[to]!;
+        if (!canPlaceRun(run, target)) continue;
+        const targetTop = target[target.length - 1];
+        const sameSuit = targetTop ? targetTop.suit === runBottom.suit : false;
+        const score = (sameSuit ? 2 : 0) + (target.length > 0 ? 1 : 0);
+        moves.push({ fromCol: from, cardIndex, toCol: to, score });
+      }
+    }
+    moves.sort((a, b) => b.score - a.score);
+    return moves;
+  }
+
+  function dfs(current: GameState): boolean {
+    if (current.tableau.every((column) => column.length === 0)) return true;
+    if (nodesExplored++ > nodeBudget) return false;
+
+    for (const move of candidateMoves(current)) {
+      const next = moveRun(current, move.fromCol, move.cardIndex, move.toCol);
+      if (!next) continue;
+      path.push({ fromCol: move.fromCol, cardIndex: move.cardIndex, toCol: move.toCol });
+      if (dfs(next)) return true;
+      path.pop();
+    }
+    return false;
+  }
+
+  return dfs(state) ? path : null;
 }
 
 /** First column (other than fromCol) the run starting at cardIndex could legally land on, if any. */
