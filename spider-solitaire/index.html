@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>스파이더 솔리테어 — 레이아웃</title>
+<title>스파이더 솔리테어</title>
 <style>
   :root {
     color-scheme: dark;
@@ -32,6 +32,8 @@
 
   * { box-sizing: border-box; }
   html, body { height: 100%; }
+  /* Rapid taps (cycling hints, undo) must not trigger the browser's double-tap zoom. */
+  html { touch-action: manipulation; }
   body {
     margin: 0;
     background:
@@ -220,7 +222,7 @@
     -webkit-user-select: none;
     user-select: none;
   }
-  .card + .card { margin-top: calc(-1 * var(--card-overlap, 58%)); }
+  .card + .card { margin-top: calc(-1 * var(--card-overlap, 76%)); }
   .card.face-down {
     background:
       repeating-linear-gradient(45deg, rgba(255,255,255,0.16) 0 2px, transparent 2px 7px),
@@ -659,6 +661,7 @@
           <p class="overlay-best" id="overlay-best" hidden></p>
           <p class="result-rank" id="result-rank" hidden></p>
           <div class="overlay-actions">
+            <button class="overlay-btn primary" id="btn-undo-stuck" hidden>한 수 되돌리기</button>
             <button class="overlay-btn primary" id="btn-retry">같은 난이도로 다시</button>
             <button class="overlay-btn ghost" id="btn-view-rankings">순위 보기</button>
             <button class="overlay-btn ghost" id="btn-change-level">난이도 변경</button>

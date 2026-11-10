@@ -197,6 +197,36 @@ describe("hasAnyMove", () => {
   });
 });
 
+describe("hasAnyMove (partial runs and no-op moves)", () => {
+  it("is true when only part of a run can move", () => {
+    // 5♠4♠ fits nowhere as a whole (no 6), but the 4♠ alone fits on the 5♥
+    const state = baseState({
+      tableau: [
+        [card(5, "♠"), card(4, "♠")],
+        [card(5, "♥")],
+        ...Array.from({ length: 8 }, () => [card(13, "♦")]),
+      ],
+    });
+    expect(hasAnyMove(state)).toBe(true);
+    expect(findAllHints(state)).toEqual([{ type: "move", fromCol: 0, cardIndex: 1, toCol: 1 }]);
+  });
+
+  it("does not count parking a whole column in an empty one as a move", () => {
+    const state = baseState({
+      tableau: [[card(13, "♠")], [card(13, "♥")], ...Array.from({ length: 8 }, () => [])],
+    });
+    expect(hasAnyMove(state)).toBe(false);
+    expect(findAllHints(state)).toEqual([]);
+  });
+
+  it("counts moving the top of a pile into an empty column", () => {
+    const state = baseState({
+      tableau: [[card(13, "♠"), card(2, "♥")], ...Array.from({ length: 9 }, () => [])],
+    });
+    expect(hasAnyMove(state)).toBe(true);
+  });
+});
+
 describe("findHint", () => {
   it("returns a concrete tableau move when one exists", () => {
     const state = baseState({
@@ -277,6 +307,22 @@ describe("findAllHints", () => {
   });
 });
 
+describe("findAllHints (target choice)", () => {
+  it("prefers a same-suit pile over an earlier off-suit pile or an empty column", () => {
+    const state = baseState({
+      tableau: [
+        [card(13, "♦"), card(9, "♠")],
+        [],
+        [card(10, "♥")],
+        [card(10, "♠")],
+        ...Array.from({ length: 6 }, () => [card(13, "♣")]),
+      ],
+    });
+    expect(findAllHints(state)[0]).toEqual({ type: "move", fromCol: 0, cardIndex: 1, toCol: 3 });
+    expect(findAutoTarget(state, 0, 1)).toBe(3);
+  });
+});
+
 describe("findAutoCompletePlan", () => {
   it("finds a move sequence that fully clears an already-organized board", () => {
     const spades = Array.from({ length: 13 }, (_, i) => card(13 - i, "♠"));
@@ -293,6 +339,57 @@ describe("findAutoCompletePlan", () => {
       current = next!;
     }
     expect(current.tableau.every((column) => column.length === 0)).toBe(true);
+  });
+
+  it("clears a board where greedy play would bounce a run between two piles forever", () => {
+    // K..3♠ needs the 2♠A♠ run, which can also hop endlessly between the two off-suit 3s.
+    const spades = Array.from({ length: 13 }, (_, i) => card(13 - i, "♠"));
+    const state = baseState({
+      difficulty: "easy",
+      completedSuits: Array.from({ length: 7 }, () => "♠" as const),
+      tableau: [
+        [card(3, "♥"), spades[11]!, spades[12]!],
+        [card(3, "♦")],
+        spades.slice(0, 11),
+        ...Array.from({ length: 7 }, () => []),
+      ],
+    });
+    // leftover off-suit 3s can never be collected, so this board is not clearable...
+    expect(findAutoCompletePlan(state)).toBeNull();
+    // ...and without them it is, however the run is tempted to wander first.
+    const clearable = { ...state, tableau: [[spades[11]!, spades[12]!], [], spades.slice(0, 11), ...state.tableau.slice(3)] };
+    const plan = findAutoCompletePlan(clearable);
+    expect(plan).not.toBeNull();
+    let current: GameState = clearable;
+    for (const move of plan!) current = moveRun(current, move.fromCol, move.cardIndex, move.toCol)!;
+    expect(isWon(current)).toBe(true);
+  });
+
+  it("splits a run when only part of it fits", () => {
+    // Two interleaved spade runs: finishing either needs the 2♠A♠ pair pulled apart.
+    const a = Array.from({ length: 13 }, (_, i) => card(13 - i, "♠"));
+    const b = Array.from({ length: 13 }, (_, i) => card(13 - i, "♠"));
+    const state = baseState({
+      difficulty: "easy",
+      completedSuits: Array.from({ length: 6 }, () => "♠" as const),
+      tableau: [
+        [...a.slice(0, 11), b[11]!, a[12]!], // K..3 (a) + 2 (b) + A (a)
+        [...b.slice(0, 11), a[11]!, b[12]!], // K..3 (b) + 2 (a) + A (b)
+        ...Array.from({ length: 8 }, () => []),
+      ],
+    });
+    const plan = findAutoCompletePlan(state);
+    expect(plan).not.toBeNull();
+    let current: GameState = state;
+    for (const move of plan!) current = moveRun(current, move.fromCol, move.cardIndex, move.toCol)!;
+    expect(isWon(current)).toBe(true);
+  });
+
+  it("gives up without throwing on a hopelessly scrambled board", () => {
+    const cards = Array.from({ length: 104 }, (_, i) => card((i * 7) % 13 + 1, (["♠", "♥", "♦", "♣"] as const)[i % 4]!));
+    const tableau: Card[][] = Array.from({ length: 10 }, () => []);
+    cards.forEach((c, i) => tableau[i % 10]!.push(c));
+    expect(() => findAutoCompletePlan(baseState({ tableau }))).not.toThrow();
   });
 
   it("returns null when the board can never be fully cleared", () => {

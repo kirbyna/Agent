@@ -49,6 +49,9 @@ let toastTimer: number | null = null;
 let drag: DragState | null = null;
 let suppressNextClick = false;
 let autoCompleting = false;
+let autoCompleteTimer: number | null = null;
+let gameOver = false;
+let lastTap: { cardId: string; at: number } | null = null;
 let hintTimer: number | null = null;
 let hintIndex = 0;
 let hintStateRef: GameState | null = null;
@@ -187,8 +190,12 @@ interface GameRecord {
 
 function loadHistory(): GameRecord[] {
   try {
-    const raw = localStorage.getItem(HISTORY_KEY);
-    return raw ? (JSON.parse(raw) as GameRecord[]) : [];
+    const parsed: unknown = JSON.parse(localStorage.getItem(HISTORY_KEY) ?? "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (r): r is GameRecord =>
+        !!r && typeof r.score === "number" && typeof r.timeSeconds === "number" && typeof r.difficulty === "string"
+    );
   } catch {
     return [];
   }
@@ -268,6 +275,12 @@ function setRankingsFilter(filter: string) {
   renderRankings(filter as "all" | Difficulty);
 }
 
+/** Pieces whose animation never finished (the overlay was closed first) would otherwise
+ *  sit hidden and replay the next time the overlay opens, even for a lost game. */
+function clearConfetti() {
+  document.querySelectorAll(".confetti-piece").forEach((el) => el.remove());
+}
+
 function spawnConfetti() {
   const colors = ["#f2c230", "#c8102e", "#eaf5ea", "#2aa04c"];
   const overlay = $("result-overlay");
@@ -297,7 +310,7 @@ interface SavedGame {
 }
 
 function saveGame() {
-  if (!state) return;
+  if (!state || gameOver) return;
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify({ state, elapsedSeconds } satisfies SavedGame));
   } catch {
@@ -305,10 +318,27 @@ function saveGame() {
   }
 }
 
+/** Guards against a save written by an older version, or corrupted storage, crashing the resume. */
+function isUsableSave(saved: SavedGame): boolean {
+  const s = saved.state;
+  return (
+    !!s &&
+    Array.isArray(s.tableau) &&
+    s.tableau.length === 10 &&
+    s.tableau.every((column) => Array.isArray(column)) &&
+    Array.isArray(s.stock) &&
+    Array.isArray(s.completedSuits) &&
+    typeof s.score === "number" &&
+    typeof s.moves === "number" &&
+    typeof saved.elapsedSeconds === "number"
+  );
+}
+
 function loadSavedGame(): SavedGame | null {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
-    return raw ? (JSON.parse(raw) as SavedGame) : null;
+    const saved = raw ? (JSON.parse(raw) as SavedGame) : null;
+    return saved && isUsableSave(saved) ? saved : null;
   } catch {
     return null;
   }
@@ -332,9 +362,11 @@ function refreshResumeButton() {
 function resumeGame() {
   const saved = loadSavedGame();
   if (!saved) return;
+  cancelAutoComplete();
   state = saved.state;
   history = [];
   selection = null;
+  gameOver = false;
   elapsedSeconds = saved.elapsedSeconds;
   $("chip-level").textContent = difficultyLabel(state.difficulty);
   updateTimeDisplay();
@@ -346,6 +378,26 @@ function resumeGame() {
 
 function showScreen(id: string) {
   document.querySelectorAll<HTMLElement>(".screen").forEach((s) => s.classList.toggle("active", s.id === id));
+}
+
+function isGameScreenActive(): boolean {
+  return $("screen-game").classList.contains("active");
+}
+
+/** Stops an in-flight "자동 정리" so its queued moves can't land on a different game. */
+function cancelAutoComplete() {
+  if (autoCompleteTimer !== null) window.clearTimeout(autoCompleteTimer);
+  autoCompleteTimer = null;
+  autoCompleting = false;
+}
+
+function leaveGame() {
+  cancelAutoComplete();
+  stopTimer();
+  saveGame();
+  ($("result-overlay") as HTMLElement).hidden = true;
+  refreshResumeButton();
+  showScreen("screen-start");
 }
 
 function startTimer() {
@@ -376,9 +428,11 @@ function showToast(message: string) {
 }
 
 function startGame(level: Difficulty, label: string) {
+  cancelAutoComplete();
   state = dealNewGame(level);
   history = [];
   selection = null;
+  gameOver = false;
   elapsedSeconds = 0;
   $("chip-level").textContent = label;
   updateTimeDisplay();
@@ -568,26 +622,28 @@ function renderTableau() {
   adjustCardOverlap(tableauEl, maxColumnLength);
 }
 
-const DEFAULT_CARD_OVERLAP = 0.76; // matches the CSS fallback (calc(-1 * var(--card-overlap, 76%)))
+const FALLBACK_CARD_OVERLAP = 0.76; // only used if no stylesheet sets --card-overlap
 const MAX_CARD_OVERLAP = 0.9; // never shrink the visible sliver below ~10% of a card
 
 /** Increases card overlap (shrinks the visible sliver) just enough that the tallest
  *  column still fits the tableau's height, instead of running off the bottom. */
 function adjustCardOverlap(tableauEl: HTMLElement, maxColumnLength: number) {
-  if (maxColumnLength <= 1) {
-    tableauEl.style.removeProperty("--card-overlap");
-    return;
-  }
+  // Start from the stylesheet's own spacing, so this only ever tightens what the theme
+  // asks for and never disagrees with it about what "normal" is.
+  tableauEl.style.removeProperty("--card-overlap");
   const firstCard = tableauEl.querySelector<HTMLElement>(".card");
   const availableHeight = tableauEl.clientHeight;
-  if (!firstCard || availableHeight <= 0) {
-    tableauEl.style.removeProperty("--card-overlap");
-    return;
-  }
+  if (!firstCard || availableHeight <= 0) return;
   const rect = firstCard.getBoundingClientRect();
   const cardHeight = rect.height;
   const cardWidth = rect.width;
   if (cardHeight <= 0 || cardWidth <= 0) return;
+
+  // The stock pile is drawn with tableau-sized cards; measuring one keeps them equal at
+  // any screen or frame width instead of trusting a viewport-based estimate.
+  document.documentElement.style.setProperty("--stock-card-w", `${cardWidth}px`);
+  if (maxColumnLength <= 1) return;
+  const defaultOverlap = currentCardOverlapFraction();
 
   // A few px of slack absorbs sub-pixel rounding across many stacked margins so the
   // tallest column doesn't end up sitting exactly on (or a hair past) the edge.
@@ -596,22 +652,19 @@ function adjustCardOverlap(tableauEl: HTMLElement, maxColumnLength: number) {
   // CSS resolves a vertical percentage margin against the containing block's WIDTH,
   // not this element's own height, so the visible "peek" per covered card is
   // cardHeight - overlapFraction * cardWidth, not cardHeight * (1 - overlapFraction).
-  const defaultPeek = cardHeight - DEFAULT_CARD_OVERLAP * cardWidth;
+  const defaultPeek = cardHeight - defaultOverlap * cardWidth;
   const neededHeight = cardHeight + (maxColumnLength - 1) * defaultPeek;
-  if (neededHeight <= safeHeight) {
-    tableauEl.style.removeProperty("--card-overlap");
-    return;
-  }
+  if (neededHeight <= safeHeight) return;
 
   const requiredOverlap = (maxColumnLength * cardHeight - safeHeight) / ((maxColumnLength - 1) * cardWidth);
-  const clamped = Math.min(MAX_CARD_OVERLAP, Math.max(DEFAULT_CARD_OVERLAP, requiredOverlap));
+  const clamped = Math.max(defaultOverlap, Math.min(MAX_CARD_OVERLAP, requiredOverlap));
   tableauEl.style.setProperty("--card-overlap", `${(clamped * 100).toFixed(2)}%`);
 }
 
 function currentCardOverlapFraction(): number {
   const raw = getComputedStyle($("tableau")).getPropertyValue("--card-overlap").trim();
   const pct = raw ? parseFloat(raw) : NaN;
-  return Number.isFinite(pct) ? pct / 100 : DEFAULT_CARD_OVERLAP;
+  return Number.isFinite(pct) ? pct / 100 : FALLBACK_CARD_OVERLAP;
 }
 
 function renderStock() {
@@ -636,13 +689,19 @@ function showResult(title: string, isWin: boolean) {
   $("result-moves").textContent = String(state!.moves);
   $("result-score").textContent = String(state!.score);
   $("result-icon").textContent = isWin ? "🏆" : "🕸️";
+  const canUndo = !isWin && history.length > 0;
+  ($("btn-undo-stuck") as HTMLElement).hidden = !canUndo;
+  $("btn-retry").className = canUndo ? "overlay-btn ghost" : "overlay-btn primary";
   ($("result-overlay") as HTMLElement).hidden = false;
+  clearConfetti();
   if (isWin) spawnConfetti();
 }
 
 function checkGameEnd() {
   if (!state) return;
   if (isWon(state)) {
+    gameOver = true;
+    cancelAutoComplete();
     stopTimer();
     clearSavedGame();
     playWinSound();
@@ -674,6 +733,8 @@ function checkGameEnd() {
   $("overlay-best").hidden = true;
   $("result-rank").hidden = true;
   if (!hasAnyMove(state)) {
+    gameOver = true;
+    cancelAutoComplete();
     stopTimer();
     clearSavedGame();
     showResult("더 이상 이동할 수 없어요", false);
@@ -694,6 +755,7 @@ function commitMove(fromCol: number, cardIndex: number, toCol: number): boolean 
   selection = null;
   history.push(prev);
   state = next;
+  lastTap = null;
   const completed = next.completedSuits.length > prev.completedSuits.length;
   renderAnimated(completed ? toCol : null);
   if (completed) {
@@ -718,11 +780,23 @@ function handleTableauClick(event: MouseEvent) {
   const colIndex = Number(colEl.dataset.col);
   const cardEl = target.closest<HTMLElement>(".card");
   const cardIndex = cardEl ? Number(cardEl.dataset.index) : null;
+  const cardId = cardEl?.dataset.cardId ?? null;
+
+  // A second tap on the card that was just picked up sends it to its best destination.
+  // (The browser's own dblclick event can't be used: the first tap re-renders the cards,
+  // so the event would be delivered to an element that is no longer on the page.)
+  const isDoubleTap = !!lastTap && lastTap.cardId === cardId && performance.now() - lastTap.at < DOUBLE_TAP_MS;
+  lastTap = null;
+  if (isDoubleTap && cardIndex !== null) {
+    autoMove(colIndex, cardIndex);
+    return;
+  }
 
   if (!selection) {
     if (cardIndex === null) return;
     if (canMoveFrom(state.tableau[colIndex]!, cardIndex)) {
       selection = { col: colIndex, index: cardIndex };
+      if (cardId) lastTap = { cardId, at: performance.now() };
       renderAnimated();
     }
     return;
@@ -734,21 +808,8 @@ function handleTableauClick(event: MouseEvent) {
     return;
   }
 
-  const prev = state;
-  const next = moveRun(state, selection.col, selection.index, colIndex);
-  if (next) {
-    selection = null;
-    history.push(prev);
-    state = next;
-    const completed = next.completedSuits.length > prev.completedSuits.length;
-    renderAnimated(completed ? colIndex : null);
-    if (completed) {
-      playCollectSound();
-      vibrateOnCollect();
-    } else {
-      playMoveSound();
-    }
-    checkGameEnd();
+  if (moveRun(state, selection.col, selection.index, colIndex)) {
+    commitMove(selection.col, selection.index, colIndex);
     return;
   }
 
@@ -756,6 +817,7 @@ function handleTableauClick(event: MouseEvent) {
   // instead of just complaining, since that's almost certainly what the player meant.
   if (cardIndex !== null && canMoveFrom(state.tableau[colIndex]!, cardIndex)) {
     selection = { col: colIndex, index: cardIndex };
+    if (cardId) lastTap = { cardId, at: performance.now() };
     renderAnimated();
     return;
   }
@@ -771,6 +833,9 @@ function handleTableauPointerDown(event: PointerEvent) {
   // browser only fires one when pointerdown/up share the same target), so a pending
   // suppression flag from a prior drag would otherwise leak into this unrelated tap.
   suppressNextClick = false;
+  // If the dragged card was re-rendered away mid-drag its pointerup never arrives; without
+  // this the abandoned drag would block every later one.
+  if (drag && !drag.originEl.isConnected) endDrag();
   if (!state || drag || !event.isPrimary || autoCompleting) return;
   const cardEl = (event.target as HTMLElement).closest<HTMLElement>(".card.face-up");
   if (!cardEl) return;
@@ -990,16 +1055,16 @@ function handleUndoClick() {
   renderAnimated();
 }
 
-function handleTableauDoubleClick(event: MouseEvent) {
-  if (!state || autoCompleting) return;
-  const cardEl = (event.target as HTMLElement).closest<HTMLElement>(".card.face-up");
-  if (!cardEl) return;
-  const fromCol = Number(cardEl.dataset.col);
-  const cardIndex = Number(cardEl.dataset.index);
+const DOUBLE_TAP_MS = 400;
+
+function autoMove(fromCol: number, cardIndex: number) {
+  if (!state) return;
+  selection = null;
   const toCol = findAutoTarget(state, fromCol, cardIndex);
   if (toCol === null) {
     playInvalidSound();
     showToast("이동할 곳이 없습니다");
+    renderAnimated();
     return;
   }
   commitMove(fromCol, cardIndex, toCol);
@@ -1019,19 +1084,15 @@ function handleAutoCompleteClick() {
 
   let stepIndex = 0;
   const step = () => {
-    if (!state || stepIndex >= plan.length) {
-      autoCompleting = false;
+    autoCompleteTimer = null;
+    if (!autoCompleting) return;
+    const move = plan[stepIndex++];
+    if (!state || !move || !commitMove(move.fromCol, move.cardIndex, move.toCol) || !autoCompleting) {
+      cancelAutoComplete();
       updateAutoCompleteVisibility();
       return;
     }
-    const move = plan[stepIndex++]!;
-    const success = commitMove(move.fromCol, move.cardIndex, move.toCol);
-    if (!success || isWon(state)) {
-      autoCompleting = false;
-      updateAutoCompleteVisibility();
-      return;
-    }
-    window.setTimeout(step, 260);
+    autoCompleteTimer = window.setTimeout(step, 260);
   };
   step();
 }
@@ -1086,7 +1147,6 @@ document.querySelectorAll<HTMLElement>(".tier").forEach((btn) => {
 
 $("tableau").addEventListener("click", handleTableauClick);
 $("tableau").addEventListener("pointerdown", handleTableauPointerDown);
-$("tableau").addEventListener("dblclick", handleTableauDoubleClick);
 $("btn-stock").addEventListener("click", handleStockClick);
 $("btn-undo").addEventListener("click", handleUndoClick);
 $("btn-hint").addEventListener("click", handleHintClick);
@@ -1102,25 +1162,19 @@ updateSoundButton();
 
 $("btn-resume").addEventListener("click", resumeGame);
 
-$("btn-back").addEventListener("click", () => {
-  stopTimer();
-  refreshResumeButton();
-  showScreen("screen-start");
-});
-$("btn-newgame").addEventListener("click", () => {
-  stopTimer();
-  refreshResumeButton();
-  showScreen("screen-start");
-});
+$("btn-back").addEventListener("click", leaveGame);
+$("btn-newgame").addEventListener("click", leaveGame);
 $("btn-retry").addEventListener("click", () => {
   if (!state) return;
   startGame(state.difficulty, difficultyLabel(state.difficulty));
 });
-$("btn-change-level").addEventListener("click", () => {
+$("btn-change-level").addEventListener("click", leaveGame);
+$("btn-undo-stuck").addEventListener("click", () => {
+  if (!state || history.length === 0) return;
+  gameOver = false;
   ($("result-overlay") as HTMLElement).hidden = true;
-  stopTimer();
-  refreshResumeButton();
-  showScreen("screen-start");
+  handleUndoClick();
+  startTimer();
 });
 
 $("btn-rankings").addEventListener("click", () => {
@@ -1137,6 +1191,27 @@ $("btn-rankings-back").addEventListener("click", () => {
 });
 document.querySelectorAll<HTMLElement>(".rank-tab").forEach((tab) => {
   tab.addEventListener("click", () => setRankingsFilter(tab.dataset.filter!));
+});
+
+// Column spacing is fitted to the tableau's height, so it has to be refitted when that changes.
+let resizeFrame = 0;
+window.addEventListener("resize", () => {
+  cancelAnimationFrame(resizeFrame);
+  resizeFrame = requestAnimationFrame(() => {
+    if (state && !drag && isGameScreenActive()) render();
+  });
+});
+
+// Keep the clock honest while the app is in the background, and don't lose the time played
+// since the last move if it never comes back.
+document.addEventListener("visibilitychange", () => {
+  if (!state || gameOver || !isGameScreenActive()) return;
+  if (document.hidden) {
+    stopTimer();
+    saveGame();
+  } else {
+    startTimer();
+  }
 });
 
 refreshResumeButton();
