@@ -1,0 +1,25 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   사용자가 직접 요청한 조정 — spider-theme.css 뒤에 읽혀 그 값을 덮어씁니다.
+   "디자인 적용해줘" 로 spider-theme.css 가 바뀌어도 이 파일은 그대로 둡니다.
+   Claude Design 에서 같은 부분을 다시 손봤다면, 그때 이 파일을 지울지 정하면 됩니다.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* 2026-11-10: 숫자와 작은 문양을 같은 크기로 키우고, 아래 큰 문양도 키움 */
+.card[data-suit] .idx {
+  top: 3cqw; left: 6cqw; right: 6cqw; height: 52cqw;
+  font-size: 56cqw;
+  letter-spacing: -0.04em;
+}
+.card[data-suit] .idx.wide { font-size: 46cqw; letter-spacing: -0.1em; }
+.card[data-suit] .idx span:last-child,
+.card[data-suit] .idx.wide span:last-child {
+  width: 42cqw; height: 42cqw;
+}
+.card[data-suit] .center-mark {
+  left: 12cqw; right: 12cqw; top: 60cqw; height: 76cqw;
+}
+.card[data-rank="J"] .center-mark,
+.card[data-rank="Q"] .center-mark,
+.card[data-rank="K"] .center-mark {
+  top: 58cqw;
+}
