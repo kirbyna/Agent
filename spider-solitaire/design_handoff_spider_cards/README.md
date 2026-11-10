@@ -124,10 +124,57 @@
 색 블록 자리표시는 **빼고**, 다른 랭크와 같은 대형 수트로 통일했습니다(참고 이미지와 동일).
 실제 그림을 쓰실 거면 이미지 파일을 주세요 — 그때 `.card.court` 규칙으로 추가합니다.
 
+## 이번 갱신 (2026-11-10) — v3 카드 앞면
+
+참고 이미지처럼 **위: 숫자 · 작은 수트 / 아래: 큰 수트**, J·Q·K 는 그림.
+
+**방식 — 글꼴 대신 벡터(SVG).** 지금 지저분해 보이는 원인은 ♠♥♦♣ 를 글꼴 문자로 그리기 때문입니다
+(기기·글꼴마다 모양과 굵기가 다르고, 작으면 뭉개짐). 수트를 SVG 모양으로 바꿔 `mask` 로 칠하고,
+숫자는 Figtree 800 그대로 둡니다. 통째 PNG 카드 이미지(52장)보다 가볍고, 어떤 크기에서도 선명합니다.
+
+### Claude Code 작업 (3가지)
+
+1. `design_handoff_spider_cards/cards/` → `spider-solitaire/public/cards/` 로 복사
+   (`court-J.svg` `court-Q.svg` `court-K.svg` + 참고용 `suit-*.svg`)
+2. `spider-theme.css` → `public/spider-theme.css` 덮어쓰기
+3. `src/main.ts` 두 곳에 data 속성 추가 (로직 변경 아님):
+   ```ts
+   // renderTableau() — if (card.faceUp) { 안, label 선언 다음
+   cardEl.dataset.suit = card.suit;
+   cardEl.dataset.rank = label;
+
+   // beginDragVisuals() — ghostCard.appendChild(idx) 다음
+   ghostCard.dataset.suit = card.suit;
+   ghostCard.dataset.rank = label;
+   const center = document.createElement("span");
+   center.className = "center-mark";
+   center.style.color = idx.style.color;
+   ghostCard.appendChild(center);
+   ```
+
+### 치수 (전부 카드 폭 기준 `cqw` — 카드가 커지면 같이 커짐)
+
+| 요소 | 값 |
+|---|---|
+| 숫자 | Figtree 800, `46cqw` (10 은 `40cqw`), 띠 `top 4cqw / left 8cqw / right 7cqw` |
+| 작은 수트 | `24cqw` 정사각, 띠 오른쪽 |
+| 큰 수트 | `top 56cqw`, 좌우 `22cqw` 여백, 높이 `56cqw` |
+| J·Q·K 그림 | `top 54cqw`, 좌우 `7cqw`, 하단 `5cqw` |
+| 겹침 | `--card-overlap: 88%` → 겹친 카드는 띠만 보이고 큰 수트는 가려짐 |
+
+`.card.face-up { container-type: inline-size }` 가 필요합니다(iOS 16+ Safari 지원).
+
+### J · Q · K 그림
+
+참고 앱 그림은 저작권이 있어 그대로 쓰지 않고, 같은 색조(금·적·청)의 **오리지널 문장(紋章)** 으로 만들었습니다:
+K = 다섯 봉우리 왕관 + 청색 망토, Q = 둥근 아치 왕관 + 하트 보석 + 적색 망토, J = 깃털 모자 + 금·적 체크.
+실제 인물 그림을 쓰고 싶으면 같은 이름(`court-K.svg` 또는 `.png`)으로 교체만 하면 됩니다.
+
 ## Files
 
 | 파일 | 용도 |
 |---|---|
+| `cards/` | **v3 추가.** J·Q·K 그림 + 수트 SVG → `public/cards/` |
 | `spider-theme.css` | **적용 대상.** index.html 뒤에 링크. 파일 맨 아래 주석에 선택 패치 원문이 있습니다 |
 | `spider-solitaire-reference.html` | 브라우저로 여는 동작 시안(별도 프로토타입). 카드 스타일·수트 색·겹침 기준을 눈으로 확인하는 용도 — 이 파일을 저장소에 넣지는 마세요 |
 

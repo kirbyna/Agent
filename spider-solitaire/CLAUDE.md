@@ -7,6 +7,9 @@
 
 1. `design_handoff_spider_cards/README.md` 를 읽는다. (내용이 매번 갱신됨 — 기억에 의존하지 말고 다시 읽을 것)
 2. `design_handoff_spider_cards/spider-theme.css` 를 `spider-solitaire/public/spider-theme.css` 로 복사(덮어쓰기).
+   이때 CSS 안의 `url("/...")` 는 `url("...")` 처럼 앞의 `/` 를 빼서 상대 경로로 바꾼다 — 홈 화면 앱은
+   `/Agent/` 아래에서 열리기 때문에 `/` 로 시작하면 그림 파일을 못 찾는다. `cards/` 같은 그림 폴더가 오면
+   `public/` 아래로 같이 복사한다.
 3. `spider-solitaire/index.html` 의 `</style>` 바로 다음 줄에 링크가 있는지 확인, 없으면 추가:
    `<link rel="stylesheet" href="/spider-theme.css" />`
 4. README 의 "선택적 소스 패치" 항목을 확인해 `src/main.ts` 에 반영한다.

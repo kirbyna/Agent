@@ -354,6 +354,57 @@ body {
 /* 포커스 링 — 브라우저 기본 파란 링 금지 */
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
+/* ═════════════════════════════════════════════════════════════════════════
+   v3 카드 앞면 — "숫자·수트 띠 + 그 아래 큰 수트" (참고 이미지 구성)
+   · 수트 기호는 글꼴 대신 벡터(SVG) 모양으로 그려 기기마다 같은 모양·같은 굵기
+   · 크기는 전부 카드 폭 기준(cqw)이라 화면 폭이 달라도 비율이 그대로
+   · J·Q·K 는 /cards/court-*.svg 그림으로 교체
+   전제: main.ts 패치 [4] — 카드에 data-suit / data-rank 를 붙여야 동작합니다.
+   ═════════════════════════════════════════════════════════════════════════ */
+.tableau { --card-overlap: 88%; }   /* 겹친 카드는 띠만 보이고 큰 수트는 가려짐 */
+
+.card.face-up { container-type: inline-size; }
+.card[data-suit="♠"] { --suit-shape: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20100%20100'%3E%3Cpath%20d%3D'M50%204C40%2020%208%2036%208%2061c0%2014%2010%2024%2023%2024%208%200%2014-4%2017-9-1%209-4%2015-11%2020h26c-7-5-10-11-11-20%203%205%209%209%2017%209%2013%200%2023-10%2023-24C92%2036%2060%2020%2050%204z'%2F%3E%3C%2Fsvg%3E"); }
+.card[data-suit="♥"] { --suit-shape: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20100%20100'%3E%3Cpath%20d%3D'M50%2093C31%2077%205%2059%205%2033%205%2017%2017%207%2031%207c9%200%2016%205%2019%2013%203-8%2010-13%2019-13%2014%200%2026%2010%2026%2026%200%2026-26%2044-45%2060z'%2F%3E%3C%2Fsvg%3E"); }
+.card[data-suit="♦"] { --suit-shape: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20100%20100'%3E%3Cpath%20d%3D'M50%203%2087%2050%2050%2097%2013%2050z'%2F%3E%3C%2Fsvg%3E"); }
+.card[data-suit="♣"] { --suit-shape: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20100%20100'%3E%3Ccircle%20cx%3D'50'%20cy%3D'27'%20r%3D'20'%2F%3E%3Ccircle%20cx%3D'27'%20cy%3D'58'%20r%3D'20'%2F%3E%3Ccircle%20cx%3D'73'%20cy%3D'58'%20r%3D'20'%2F%3E%3Cpath%20d%3D'M44%2040h12v14c1%2016%205%2029%2013%2040H31c8-11%2012-24%2013-40z'%2F%3E%3C%2Fsvg%3E"); }
+
+.card[data-suit] .idx {
+  top: 4cqw; left: 8cqw; right: 7cqw; height: 46cqw;
+  display: flex; align-items: center; justify-content: space-between;
+  font: 800 46cqw/1 var(--font-body);
+  letter-spacing: -0.06em;
+}
+.card[data-suit] .idx.wide { font-size: 40cqw; letter-spacing: -0.1em; }
+.card[data-suit] .idx span:last-child,
+.card[data-suit] .idx.wide span:last-child {
+  flex: none;
+  width: 24cqw; height: 24cqw;
+  font-size: 0; color: inherit;
+  background: currentColor;
+  -webkit-mask: var(--suit-shape) center / contain no-repeat;
+          mask: var(--suit-shape) center / contain no-repeat;
+}
+.card[data-suit] .center-mark {
+  inset: auto;
+  left: 22cqw; right: 22cqw; top: 56cqw; height: 56cqw;
+  font-size: 0; opacity: 1;
+  background: currentColor;
+  -webkit-mask: var(--suit-shape) center / contain no-repeat;
+          mask: var(--suit-shape) center / contain no-repeat;
+}
+/* 궁정 카드 — 큰 수트 자리에 그림 */
+.card[data-rank="J"] .center-mark,
+.card[data-rank="Q"] .center-mark,
+.card[data-rank="K"] .center-mark {
+  left: 7cqw; right: 7cqw; top: 54cqw; bottom: 5cqw; height: auto;
+  -webkit-mask: none; mask: none;
+  background: var(--court) center / contain no-repeat;
+}
+.card[data-rank="J"] { --court: url("/cards/court-J.svg"); }
+.card[data-rank="Q"] { --court: url("/cards/court-Q.svg"); }
+.card[data-rank="K"] { --court: url("/cards/court-K.svg"); }
+
 /* ─────────────────────────────────────────────────────────────────────────
    선택적 소스 패치 2건 (없어도 테마는 동작합니다)
 
@@ -367,6 +418,19 @@ body {
        → 노출 띠가 약 21px 로 고정되어 숫자 19px 가 항상 보입니다.
          (CSS 만 적용해도 첫 렌더는 82% 로 나오지만, JS 가 다시 계산할 때
           0.58 로 되돌아가므로 값을 맞추는 편이 안전합니다)
+
+   [4] (v3 카드 앞면에 필수) 카드에 수트·랭크 표시 — src/main.ts
+       renderTableau() 의 cardEl 생성 직후, if (card.faceUp) 블록 안에:
+         cardEl.dataset.suit = card.suit;
+         cardEl.dataset.rank = label;
+       beginDragVisuals() 의 ghostCard 에도 같은 두 줄 + center-mark 추가:
+         ghostCard.dataset.suit = card.suit;
+         ghostCard.dataset.rank = label;
+         const center = document.createElement("span");
+         center.className = "center-mark";
+         center.style.color = idx.style.color;
+         ghostCard.appendChild(center);
+       그리고 design_handoff_spider_cards/cards/ 를 public/cards/ 로 복사.
 
    [3] 폰트 — index.html 의 Fraunces / IBM Plex Sans <link> 는 지워도 됩니다.
        이 파일 첫 줄의 @import 가 Caprasimo + Figtree 를 불러옵니다.

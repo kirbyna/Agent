@@ -596,6 +596,8 @@ function renderTableau() {
 
       if (card.faceUp) {
         const label = rankLabel(card.rank);
+        cardEl.dataset.suit = card.suit;
+        cardEl.dataset.rank = label;
         const suitColor = isRedSuit(card.suit) ? "var(--red-suit)" : "var(--black-suit)";
 
         const idx = document.createElement("span");
@@ -894,6 +896,12 @@ function beginDragVisuals() {
     idx.style.color = isRedSuit(card.suit) ? "var(--red-suit)" : "var(--black-suit)";
     idx.innerHTML = `<span>${label}</span><span>${card.suit}</span>`;
     ghostCard.appendChild(idx);
+    ghostCard.dataset.suit = card.suit;
+    ghostCard.dataset.rank = label;
+    const center = document.createElement("span");
+    center.className = "center-mark";
+    center.style.color = idx.style.color;
+    ghostCard.appendChild(center);
     ghost.appendChild(ghostCard);
     el.classList.add("drag-hidden");
   });
