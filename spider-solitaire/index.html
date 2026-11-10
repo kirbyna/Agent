@@ -69,11 +69,15 @@
     height: 100%;
     display: flex;
     flex-direction: column;
-    justify-content: center;
     gap: clamp(20px, 5vh, 36px);
-    padding: 0 22px;
+    padding: 16px 22px;
     padding-bottom: max(24px, env(safe-area-inset-bottom, 0px));
+    /* Centred when it fits; on a short screen it scrolls instead of clipping the top
+       (justify-content: center would push the overflow off both edges). */
+    overflow-y: auto;
   }
+  .start-inner > :first-child { margin-top: auto; }
+  .start-inner > :last-child { margin-bottom: auto; }
   .start-head { text-align: center; display: flex; flex-direction: column; gap: 10px; }
   .eyebrow {
     margin: 0;

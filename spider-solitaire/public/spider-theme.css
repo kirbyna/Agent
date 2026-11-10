@@ -405,6 +405,28 @@ body {
 .card[data-rank="Q"] { --court: url("cards/court-Q.svg"); }
 .card[data-rank="K"] { --court: url("cards/court-K.svg"); }
 
+/* ── 시작 화면 표지 — K·Q·J 세 장이 부채꼴로 겹친 그림 ─────────────────────
+   마크업 변경 없음. 헤더(.start-head) 맨 위에 그림을 얹습니다.
+   그림: /cards/start-hero.svg (게임 카드와 같은 J·Q·K 그림·같은 레이아웃) */
+.start-head::before {
+  content: "";
+  display: block;
+  width: min(74vw, 300px);
+  aspect-ratio: 320 / 210;
+  margin: 0 auto 4px;
+  background: url("cards/start-hero.svg") center / contain no-repeat;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.35));
+  animation: start-hero-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes start-hero-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .start-head::before { animation: none; } }
+/* 그림이 표지 역할을 하므로 개발용 문구(eyebrow)는 숨깁니다 */
+.start-head .eyebrow { display: none; }
+.start-head h1 { font: 900 clamp(2rem, 9vw, 2.5rem)/1.1 var(--font-body); letter-spacing: -0.02em; color: #fff; }
+
 /* ─────────────────────────────────────────────────────────────────────────
    선택적 소스 패치 2건 (없어도 테마는 동작합니다)
 
