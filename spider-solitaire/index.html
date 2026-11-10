@@ -4,6 +4,14 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>스파이더 솔리테어</title>
+<meta name="theme-color" content="#0d5524" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="스파이더" />
+<link rel="manifest" href="/manifest.webmanifest" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
 <style>
   :root {
     color-scheme: dark;
@@ -27,7 +35,6 @@
     --font-display: "Fraunces", Georgia, "Noto Serif KR", serif;
     --font-body: "IBM Plex Sans", "Apple SD Gothic Neo", -apple-system, sans-serif;
     padding-top: env(safe-area-inset-top, 0px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   * { box-sizing: border-box; }
@@ -456,7 +463,7 @@
   .rank-list {
     flex: 1;
     overflow-y: auto;
-    padding: 10px 16px 20px;
+    padding: 10px 16px max(20px, env(safe-area-inset-bottom, 0px));
     display: flex;
     flex-direction: column;
     gap: 8px;

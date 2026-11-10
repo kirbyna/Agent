@@ -1,0 +1,373 @@
+@import url("https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800;900&display=swap");
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Spider Solitaire — Crisp Classic 테마 (드롭인)
+   대상: kirbyna/Agent @ claude/spider-solitaire-iphone-plan-gm7ehm
+         spider-solitaire/index.html + src/main.ts 의 실제 클래스에 맞춤
+
+   적용: index.html 의 </style> 바로 "아래"에 한 줄 추가 (순서 중요)
+       <link rel="stylesheet" href="/spider-theme.css" />
+   → 마크업/로직 수정 0. 선택적 패치 2건은 파일 맨 아래 주석 참고.
+   ───────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* 펠트 — 세이지 다크 */
+  --felt-900: #0f6b2e;
+  --felt-800: #1a8a3f;
+  --felt-radial: #2aa04c;
+  --surface: #0d5524;
+  --surface-line: rgba(255, 255, 255, 0.16);
+
+  /* 카드 */
+  --card-face: #ffffff;
+  --card-back-1: #c0272f;
+  --card-back-2: #7d1419;
+
+  /* 하단 바 — 나무 대신 따뜻한 테라코타 다크 */
+  --wood-1: #0d5524;
+  --wood-2: #08401b;
+
+  --ink: #111111;
+  --muted: #eaf5ea;
+  --faint: #a9ccb1;
+
+  /* 강조 — 골드 대신 테라코타 */
+  --gold: #f2c230;
+  --gold-ink: #2a2205;
+
+  /* 수트 색 */
+  --red-suit: #c8102e;
+  --black-suit: #111111;
+
+  --font-display: "Figtree", "Apple SD Gothic Neo", -apple-system, sans-serif;
+  --font-body: "Figtree", "Apple SD Gothic Neo", -apple-system, sans-serif;
+
+  /* 이 테마가 새로 쓰는 값 */
+  --card-r: 5px;
+  --card-back-edge: #7d1419;
+  /* 태블로 카드와 동일 계산: (화면폭 − .tableau 좌우패딩 12 − gap 3×9) / 10 */
+  --stock-card-w: calc((100vw - 39px) / 10);
+  --stock-step: calc(var(--stock-card-w) * 0.34);
+  /* 뒷면 로고 — public/ 에 파일을 넣고 아래 한 줄만 켜면 됩니다
+     --card-logo: url("/card-logo.svg"); */
+  --card-logo-size: 58%;
+  --card-logo-clip: polygon(50% 4%, 96% 50%, 50% 96%, 4% 50%);
+  --card-edge: rgba(0, 0, 0, 0.3);
+  --card-shadow: 0 1.5px 3px rgba(0, 0, 0, 0.32);
+}
+
+/* 보드 바탕 — 사선 텍스처 제거, 따뜻한 비네트만 */
+body {
+  background: radial-gradient(120% 90% at 50% -10%, var(--felt-radial), var(--felt-800) 55%, var(--felt-900) 100%);
+  color: var(--muted);
+}
+
+/* ── 태블로 기하 ─────────────────────────────────────────────────────────
+   카드는 그대로 두고 "겹침"만 조여서 숫자 띠(≈21px)를 확보합니다.
+   (main.ts 가 더 조여야 할 때만 이 값을 덮어씁니다) */
+.tableau {
+  --card-overlap: 82%;
+  gap: 3px;
+  padding: 10px 6px 6px;
+}
+
+.column.empty {
+  border: 1.5px dashed rgba(255, 255, 255, 0.17);
+  border-radius: var(--card-r);
+}
+
+/* ── 카드 ───────────────────────────────────────────────────────────────── */
+.card {
+  border-radius: var(--card-r);
+}
+.card.face-up {
+  background: var(--card-face);
+  border: 1px solid var(--card-edge);
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+}
+.card.face-down {
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.13) 0 1.5px, transparent 1.5px 7px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.13) 0 1.5px, transparent 1.5px 7px),
+    linear-gradient(160deg, var(--card-back-1), var(--card-back-2));
+  border: 1px solid var(--card-back-edge);
+  position: relative;
+}
+/* 뒷면 A — 붉은 격자 + 중앙 로고.
+   --card-logo 에 이미지 URL 을 넣으면 그 로고가 들어가고,
+   넣지 않으면 마름모 메달리온만 보입니다(그 자체로 완결된 모양). */
+.card.face-down::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--card-logo-size);
+  height: var(--card-logo-size);
+  transform: translate(-50%, -50%);
+  background:
+    var(--card-logo, none) center / contain no-repeat,
+    linear-gradient(135deg, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.1));
+  clip-path: var(--card-logo-clip);
+  opacity: 0.92;
+  pointer-events: none;
+}
+
+/* 숫자·수트 띠 — 겹쳐도 읽히는 핵심.
+   가운데 정렬을 좌우 분산으로 바꾸고 숫자를 디스플레이 서체로 키웁니다. */
+.idx {
+  top: 2px;
+  left: 4px;
+  right: 4px;
+  justify-content: space-between;
+  align-items: center;
+  height: 19px;
+  font: 800 20px/1 var(--font-body);
+  letter-spacing: -0.05em;
+}
+.idx span:last-child {
+  font: 800 13px/1 var(--font-body);
+}
+.idx.wide {
+  font-size: 18px;
+  letter-spacing: -0.07em;
+}
+.idx.wide span:last-child {
+  font-size: 12px;
+}
+
+/* 큰 수트 = 워터마크. 완전히 보이는 맨 아래 카드에서만 읽힙니다 */
+.center-mark {
+  inset: 22px 0 auto 0;
+  display: block;
+  text-align: center;
+  font: 400 34px/1 var(--font-body);
+  opacity: 1;
+}
+
+/* 상태 */
+.card.selected {
+  outline: 2px solid var(--gold);
+  outline-offset: -1px;
+  transform: translateY(-5px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.45);
+}
+.card.hint {
+  outline: 2.5px solid #f2c230;
+  outline-offset: -1px;
+  animation: organic-glow 1.1s ease-in-out infinite;
+}
+@keyframes organic-glow {
+  0%, 100% { box-shadow: var(--card-shadow), 0 0 0 0 rgba(242, 194, 48, 0); }
+  50%      { box-shadow: var(--card-shadow), 0 0 0 4px rgba(242, 194, 48, 0.85); }
+}
+.column.hint-target {
+  background: rgba(242, 194, 48, 0.16);
+  border-radius: var(--card-r);
+}
+.column.drop-ready {
+  background: rgba(242, 194, 48, 0.22);
+  border-radius: var(--card-r);
+  outline: 2px dashed rgba(242, 194, 48, 0.7);
+  outline-offset: -2px;
+}
+.drag-ghost .card {
+  border-radius: var(--card-r);
+  border: 1px solid var(--card-edge);
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.5);
+  transform: rotate(2.5deg);
+}
+
+/* ── 상단 바 / 딜 행 ────────────────────────────────────────────────────── */
+/* ── 상단 헤더 — 두 줄을 한 덩어리로 붙여 공백을 줄입니다 ─────────────────
+   :root 가 이미 env(safe-area-inset-top) 을 넣는데 .nav-bar 가
+   padding-top: max(10px, env(safe-area-inset-top)) 로 한 번 더 넣어서
+   아이폰 사파리에서 안전영역이 두 번 계산되고 있었습니다. 여기서 끊습니다. */
+.nav-bar {
+  padding: 7px 14px;
+  background: var(--surface);
+  border-bottom: none;
+}
+.deal-row {
+  padding: 5px 14px 7px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--surface-line);
+  align-items: flex-end;
+}
+.nav-btn {
+  font: 400 1rem/1 var(--font-display);
+  color: var(--card-face);
+  padding: 6px 4px;
+}
+.nav-btn:active { color: var(--gold); }
+.chip {
+  font: 700 0.78rem/1 var(--font-body);
+  background: rgba(242, 194, 48, 0.18);
+  color: var(--gold);
+  border: 1px solid rgba(242, 194, 48, 0.42);
+  padding: 8px 13px;
+}
+.stat-k { color: var(--faint); font: 600 0.66rem/1 var(--font-body); letter-spacing: 0.08em; }
+.stat-v { font: 600 0.88rem/1 var(--font-body); color: var(--card-face); }
+
+/* ── 스톡 더미 ─────────────────────────────────────────────────────────── */
+/* ── 스톡(남은 덱) — 태블로 카드와 같은 크기로, 가로로 겹쳐 부채꼴 ─────────
+   .stock-card 하나가 남은 덱 한 벌입니다(3벌 남으면 카드 3장).
+   태블로 카드 폭과 같은 식으로 계산하므로 화면 폭이 달라져도 어긋나지 않습니다. */
+.stock {
+  padding: 0;
+  border-radius: var(--card-r);
+}
+/* 부채꼴을 오른쪽에 고정합니다. 남은 벌수가 줄어도 오른쪽 여백이 벌어지지 않게
+   컨테이너를 폭 0 으로 두고 카드를 오른쪽 기준으로 왼쪽으로 쌓습니다. */
+.stock-cards {
+  width: var(--stock-card-w);
+  height: calc(var(--stock-card-w) * 7 / 5);
+}
+.stock-card {
+  top: 0;
+  width: var(--stock-card-w);
+  height: calc(var(--stock-card-w) * 7 / 5);
+  aspect-ratio: auto;
+  /* main.ts 가 inline transform 으로 4px 씩 밀어두는 것을 끊고, 여기서 다시 겹칩니다 */
+  transform: none !important;
+}
+/* 마지막 카드가 항상 오른쪽 끝(right:0)에 오고, 앞쪽 카드들이 왼쪽으로 물러납니다 */
+.stock-card { left: auto; right: 0; }
+.stock-card:nth-last-child(2) { right: var(--stock-step); }
+.stock-card:nth-last-child(3) { right: calc(2 * var(--stock-step)); }
+.stock-card:nth-last-child(4) { right: calc(3 * var(--stock-step)); }
+.stock-card:nth-last-child(5) { right: calc(4 * var(--stock-step)); }
+
+.stock-card {
+  border-radius: var(--card-r);
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.13) 0 1.5px, transparent 1.5px 7px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.13) 0 1.5px, transparent 1.5px 7px),
+    linear-gradient(160deg, var(--card-back-1), var(--card-back-2));
+  border: 1px solid var(--card-back-edge);
+  box-shadow: -1px 0 2px rgba(0, 0, 0, 0.28);
+}
+.stock-card::after {
+  content: "";
+  position: absolute;
+  inset: 22%;
+  background:
+    var(--card-logo, none) center / contain no-repeat,
+    linear-gradient(135deg, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.1));
+  clip-path: var(--card-logo-clip);
+  opacity: 0.92;
+}
+.stock-card { position: absolute; }
+
+.stock-badge {
+  background: var(--gold);
+  color: #ffffff;
+  font: 700 10px/18px var(--font-body);
+}
+@keyframes spider-stock-glow {
+  from { box-shadow: 0 0 0 0 rgba(242, 194, 48, 0.55); background: transparent; }
+  to   { box-shadow: 0 0 14px 4px rgba(242, 194, 48, 0.55); background: rgba(242, 194, 48, 0.14); }
+}
+
+/* ── 하단 바 ───────────────────────────────────────────────────────────── */
+.bar-bottom {
+  background: linear-gradient(180deg, var(--wood-1), var(--wood-2));
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+}
+.hint-action { color: #eaf5ea; border-radius: 999px; }
+.hint-action span { font: 600 0.78rem/1 var(--font-body); }
+.hint-action svg { stroke: #eaf5ea; stroke-width: 2.75; }
+.hint-action:active { background: rgba(255, 255, 255, 0.14); }
+.stat-stack .stat-score {
+  font: 400 1.3rem/1 var(--font-display);
+  color: var(--gold);
+}
+.stat-stack .stat-sub { color: #eaf5ea; font: 500 0.78rem/1 var(--font-body); }
+
+.autocomplete-btn {
+  background: var(--gold);
+  color: #ffffff;
+  font: 700 0.85rem/1 var(--font-body);
+  padding: 12px 20px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45);
+}
+
+/* ── 시작 화면 ─────────────────────────────────────────────────────────── */
+.eyebrow { color: var(--gold); font: 600 11px/1 var(--font-body); letter-spacing: 0.16em; }
+.start-head h1 { font: 400 clamp(2.1rem, 9.5vw, 2.7rem)/1.1 var(--font-display); color: var(--card-face); }
+.lede { color: var(--muted); }
+.tier {
+  border-radius: 20px;
+  border: 1px solid var(--surface-line);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+}
+.tier:active { background: rgba(255, 255, 255, 0.1); }
+.tier-name { font: 400 1.08rem/1.2 var(--font-display); }
+.tier-desc { color: var(--faint); font: 400 0.78rem/1.3 var(--font-body); }
+.tier-go {
+  background: var(--gold);
+  color: #ffffff;
+  font: 700 0.78rem/1 var(--font-body);
+  padding: 8px 14px;
+}
+.tier-glyphs .s-red { color: var(--gold); }
+.tier-glyphs .s-black { color: var(--card-face); }
+.resume { border-radius: 999px; padding: 14px; font: 600 0.85rem var(--font-body); }
+.resume:not(:disabled) {
+  border: 1px solid rgba(242, 194, 48, 0.5);
+  background: rgba(242, 194, 48, 0.14);
+  color: var(--gold);
+}
+
+/* ── 토스트 / 결과 오버레이 ───────────────────────────────────────────── */
+.toast {
+  background: rgba(0, 0, 0, 0.86);
+  border: none;
+  color: var(--card-face);
+  font: 600 0.8rem var(--font-body);
+  padding: 9px 16px;
+}
+.overlay { background: rgba(4, 48, 22, 0.86); backdrop-filter: blur(3px); }
+.overlay-card {
+  background: var(--surface);
+  border: 1px solid var(--surface-line);
+  border-radius: 28px;
+  padding: 26px;
+}
+.overlay-title { font: 400 1.5rem/1.2 var(--font-display); color: var(--card-face); }
+.overlay-best {
+  color: var(--gold);
+  background: rgba(242, 194, 48, 0.14);
+  border: 1px solid rgba(242, 194, 48, 0.32);
+  border-radius: 14px;
+  font: 600 0.8rem/1.4 var(--font-body);
+}
+.overlay-btn { border-radius: 999px; padding: 14px; font: 700 0.9rem var(--font-body); }
+.overlay-btn.primary { background: var(--gold); color: #ffffff; }
+.overlay-btn.ghost {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--card-face);
+  border: 1px solid var(--surface-line);
+}
+
+/* 포커스 링 — 브라우저 기본 파란 링 금지 */
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   선택적 소스 패치 2건 (없어도 테마는 동작합니다)
+
+   [1] 참고 이미지처럼 검정/빨강 2색만 씁니다 — src/main.ts 수정 불필요.
+       (기존 isRedSuit() 2색 분기를 그대로 두세요. 토큰만 바뀝니다:
+        --red-suit #c8102e, --black-suit #111111)
+
+   [2] 겹침 기본값 — src/main.ts (이미 0.76 / 0.9 이면 그대로 두세요)
+       DEFAULT_CARD_OVERLAP: 0.82
+       MAX_CARD_OVERLAP:     0.9
+       → 노출 띠가 약 21px 로 고정되어 숫자 19px 가 항상 보입니다.
+         (CSS 만 적용해도 첫 렌더는 82% 로 나오지만, JS 가 다시 계산할 때
+          0.58 로 되돌아가므로 값을 맞추는 편이 안전합니다)
+
+   [3] 폰트 — index.html 의 Fraunces / IBM Plex Sans <link> 는 지워도 됩니다.
+       이 파일 첫 줄의 @import 가 Caprasimo + Figtree 를 불러옵니다.
+   ───────────────────────────────────────────────────────────────────────── */

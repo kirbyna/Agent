@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
+    "build:pages": "vite build --outDir ../docs --emptyOutDir",
     "cap:sync": "npm run build && cap sync ios",
     "cap:open": "cap open ios"
   },

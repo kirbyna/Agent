@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>스파이더 솔리테어</title>
+<meta name="theme-color" content="#0d5524" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="스파이더" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
+<style>
+  :root {
+    color-scheme: dark;
+    --felt-900: #0a3320;
+    --felt-800: #123f28;
+    --felt-radial: #175231;
+    --surface: #0d2c1e;
+    --surface-line: rgba(255, 255, 255, 0.12);
+    --card-face: #f7f2e7;
+    --card-back-1: #7a2230;
+    --card-back-2: #4c1620;
+    --wood-1: #5b3a24;
+    --wood-2: #34210f;
+    --ink: #16201a;
+    --muted: #b9d2c1;
+    --faint: #7fa08d;
+    --gold: #dcae44;
+    --gold-ink: #2a2205;
+    --red-suit: #b3392c;
+    --black-suit: #16201a;
+    --font-display: "Fraunces", Georgia, "Noto Serif KR", serif;
+    --font-body: "IBM Plex Sans", "Apple SD Gothic Neo", -apple-system, sans-serif;
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  /* Rapid taps (cycling hints, undo) must not trigger the browser's double-tap zoom. */
+  html { touch-action: manipulation; }
+  body {
+    margin: 0;
+    background:
+      repeating-linear-gradient(45deg, rgba(255,255,255,0.028) 0 1px, transparent 1px 3px),
+      radial-gradient(120% 90% at 50% -10%, var(--felt-radial), var(--felt-800) 55%, var(--felt-900) 100%);
+    color: var(--card-face);
+    font-family: var(--font-body);
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+  button { font-family: inherit; color: inherit; }
+
+  #app { position: relative; height: 100%; overflow: hidden; }
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+  }
+  .screen.active { display: flex; }
+
+  /* ---------- Start screen ---------- */
+  .start-inner {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: clamp(20px, 5vh, 36px);
+    padding: 0 22px;
+    padding-bottom: max(24px, env(safe-area-inset-bottom, 0px));
+  }
+  .start-head { text-align: center; display: flex; flex-direction: column; gap: 10px; }
+  .eyebrow {
+    margin: 0;
+    font: 600 11px/1 var(--font-body);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+  .start-head h1 {
+    margin: 0;
+    font: 700 clamp(2rem, 9vw, 2.5rem)/1.08 var(--font-display);
+    text-wrap: balance;
+    color: var(--card-face);
+  }
+  .lede {
+    margin: 0 auto;
+    max-width: 30ch;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: var(--muted);
+  }
+
+  .tiers { display: flex; flex-direction: column; gap: 10px; }
+  .tier {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid var(--surface-line);
+    background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015));
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.12s ease, background 0.12s ease;
+  }
+  .tier:active { transform: scale(0.98); background: rgba(255,255,255,0.08); }
+  .tier-glyphs {
+    min-width: 44px;
+    font-size: 1.3rem;
+    letter-spacing: 1px;
+    color: var(--card-face);
+    display: flex;
+    gap: 2px;
+  }
+  .tier[data-level="easy"] .tier-glyphs { color: var(--card-face); }
+  .s-red { color: var(--red-suit); }
+  .s-black { color: var(--card-face); }
+  .tier-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .tier-name { font: 600 1.02rem/1.2 var(--font-display); color: var(--card-face); }
+  .tier-desc { font-size: 0.78rem; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tier-go {
+    font: 600 0.78rem/1 var(--font-body);
+    color: var(--gold-ink);
+    background: var(--gold);
+    padding: 7px 12px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  .resume {
+    border: 1px dashed var(--surface-line);
+    background: transparent;
+    color: var(--faint);
+    border-radius: 14px;
+    padding: 12px;
+    font: 500 0.85rem var(--font-body);
+  }
+  .resume:disabled { opacity: 0.6; }
+  .resume:not(:disabled) {
+    border: 1px solid rgba(220, 174, 68, 0.45);
+    background: rgba(220, 174, 68, 0.1);
+    color: var(--gold);
+    font-weight: 600;
+  }
+  .resume:not(:disabled):active { background: rgba(220, 174, 68, 0.2); }
+
+  /* ---------- Game screen ---------- */
+  .nav-bar {
+    flex: 0 0 auto;
+    padding: 10px 16px;
+    padding-top: max(10px, env(safe-area-inset-top, 0px));
+    background: var(--surface);
+    border-bottom: 1px solid var(--surface-line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .nav-btn {
+    background: transparent;
+    border: none;
+    color: var(--card-face);
+    font: 700 1rem/1 var(--font-display);
+  }
+  .nav-btn:active { color: var(--gold); }
+  .nav-group { display: flex; align-items: center; gap: 10px; }
+  .sound-btn {
+    background: transparent;
+    border: none;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .sound-btn svg { width: 20px; height: 20px; stroke: var(--muted); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .sound-btn.muted svg { stroke: var(--faint); opacity: 0.6; }
+
+  .deal-row {
+    flex: 0 0 auto;
+    padding: 10px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--surface-line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .chip {
+    font: 600 0.78rem/1 var(--font-body);
+    background: rgba(220, 174, 68, 0.16);
+    color: var(--gold);
+    border: 1px solid rgba(220, 174, 68, 0.35);
+    padding: 7px 11px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .stat { display: flex; align-items: baseline; gap: 5px; }
+  .stat-k { font-size: 0.68rem; color: var(--faint); }
+  .stat-v { font: 600 0.85rem/1 var(--font-body); font-variant-numeric: tabular-nums; color: var(--card-face); }
+
+  .tableau {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 2px;
+    padding: 10px 5px 6px;
+    align-content: start;
+    align-items: start;
+    min-height: 0;
+    touch-action: none;
+  }
+  .column { position: relative; display: flex; flex-direction: column; }
+  .column.empty {
+    aspect-ratio: 5 / 7;
+    border: 2px dashed rgba(247, 242, 231, 0.28);
+    border-radius: 5px;
+  }
+  .card {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 5 / 7;
+    border-radius: 4px;
+    flex-shrink: 0;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .card + .card { margin-top: calc(-1 * var(--card-overlap, 76%)); }
+  .card.face-down {
+    background:
+      repeating-linear-gradient(45deg, rgba(255,255,255,0.16) 0 2px, transparent 2px 7px),
+      repeating-linear-gradient(-45deg, rgba(255,255,255,0.16) 0 2px, transparent 2px 7px),
+      linear-gradient(135deg, var(--card-back-1), var(--card-back-2));
+    border: 1px solid rgba(255,255,255,0.25);
+  }
+  .card.face-up {
+    background: var(--card-face);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.35);
+  }
+  .idx {
+    position: absolute;
+    top: 1px;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 1px;
+    line-height: 1;
+    font: 800 18px/1 var(--font-body);
+    letter-spacing: -0.03em;
+    white-space: nowrap;
+  }
+  .idx span:last-child { font-size: 16px; }
+  .idx.wide { font-size: 15px; }
+  .center-mark {
+    position: absolute;
+    inset: 0;
+    top: 38%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 27px;
+    line-height: 1;
+    opacity: 0.92;
+    pointer-events: none;
+  }
+  .idx.wide span:last-child { font-size: 13px; }
+  .card.face-up { cursor: pointer; }
+  .card.selected {
+    outline: 2px solid var(--gold);
+    outline-offset: -1px;
+    transform: translateY(-4px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.45);
+  }
+  .card.hint {
+    outline: 2px solid #6fd6a8;
+    outline-offset: -1px;
+  }
+  .column.hint-target { background: rgba(111, 214, 168, 0.14); border-radius: 6px; }
+  .column.drop-ready {
+    background: rgba(220, 174, 68, 0.18);
+    border-radius: 6px;
+    outline: 2px dashed rgba(220, 174, 68, 0.6);
+    outline-offset: -2px;
+  }
+  .card.drag-hidden { visibility: hidden; }
+  .card.deal-in { animation: spider-deal-in 0.26s ease-out; }
+  @keyframes spider-deal-in {
+    from { opacity: 0; transform: translateY(-12px) scale(0.94); }
+    to { opacity: 1; transform: none; }
+  }
+  .collect-fly {
+    transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.5s ease-in;
+    z-index: 60;
+    pointer-events: none;
+  }
+
+  .drag-ghost {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 50;
+    pointer-events: none;
+    will-change: transform;
+  }
+  .drag-ghost .card {
+    position: absolute;
+    left: 0;
+    background: var(--card-face);
+    border-radius: 4px;
+    box-shadow: 0 10px 18px rgba(0,0,0,0.5);
+  }
+
+  .toast {
+    position: absolute;
+    left: 50%;
+    bottom: 78px;
+    transform: translateX(-50%);
+    background: rgba(15, 20, 17, 0.92);
+    border: 1px solid var(--surface-line);
+    color: var(--card-face);
+    font: 500 0.8rem var(--font-body);
+    padding: 8px 14px;
+    border-radius: 999px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    z-index: 5;
+  }
+  .toast.show { opacity: 1; }
+
+  .autocomplete-btn {
+    position: absolute;
+    left: 50%;
+    bottom: 78px;
+    transform: translateX(-50%);
+    background: var(--gold);
+    color: var(--gold-ink);
+    border: none;
+    font: 700 0.85rem/1 var(--font-body);
+    padding: 11px 18px;
+    border-radius: 999px;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+    z-index: 6;
+    animation: spider-autocomplete-pop 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .autocomplete-btn:active { transform: translateX(-50%) scale(0.96); }
+  @keyframes spider-autocomplete-pop {
+    from { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.9); }
+    to { opacity: 1; transform: translateX(-50%); }
+  }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(6, 20, 12, 0.72);
+    padding: 24px;
+    z-index: 10;
+    overflow: hidden;
+  }
+  .overlay-card {
+    width: 100%;
+    max-width: 320px;
+    background: var(--surface);
+    border: 1px solid var(--surface-line);
+    border-radius: 18px;
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    text-align: center;
+    animation: spider-overlay-pop 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  @keyframes spider-overlay-pop {
+    from { opacity: 0; transform: scale(0.88) translateY(10px); }
+    to { opacity: 1; transform: none; }
+  }
+  .result-icon { font-size: 2.6rem; line-height: 1; }
+  .overlay-title { margin: 0; font: 700 1.4rem/1.2 var(--font-display); }
+  .overlay-stats { display: flex; justify-content: center; gap: 18px; }
+  .overlay-stats .stat-v { font-size: 1rem; }
+  .overlay-best {
+    margin: 0;
+    font: 600 0.8rem/1.4 var(--font-body);
+    color: var(--gold);
+    background: rgba(220, 174, 68, 0.12);
+    border: 1px solid rgba(220, 174, 68, 0.3);
+    border-radius: 10px;
+    padding: 8px 10px;
+  }
+  .result-rank {
+    margin: 0;
+    font: 700 0.85rem/1.4 var(--font-body);
+    color: var(--gold-ink);
+    background: var(--gold);
+    border-radius: 10px;
+    padding: 8px 10px;
+  }
+  .overlay-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .overlay-btn {
+    border: none;
+    border-radius: 12px;
+    padding: 12px;
+    font: 600 0.9rem var(--font-body);
+  }
+  .overlay-btn.primary { background: var(--gold); color: var(--gold-ink); }
+  .overlay-btn.ghost { background: rgba(255,255,255,0.06); color: var(--card-face); border: 1px solid var(--surface-line); }
+
+  .confetti-piece {
+    position: absolute;
+    top: -12px;
+    width: 8px;
+    height: 14px;
+    z-index: 11;
+    pointer-events: none;
+    animation: spider-confetti-fall linear forwards;
+  }
+  @keyframes spider-confetti-fall {
+    from { transform: translateY(0) rotate(0deg); opacity: 1; }
+    to { transform: translateY(320px) rotate(540deg); opacity: 0; }
+  }
+
+  .rankings-link {
+    background: transparent;
+    border: none;
+    color: var(--faint);
+    font: 600 0.85rem var(--font-body);
+    padding: 6px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .rank-tabs {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--surface-line);
+  }
+  .rank-tab {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--surface-line);
+    color: var(--faint);
+    border-radius: 999px;
+    padding: 8px 4px;
+    font: 600 0.78rem/1 var(--font-body);
+  }
+  .rank-tab.active {
+    background: var(--gold);
+    color: var(--gold-ink);
+    border-color: var(--gold);
+  }
+  .rank-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 16px max(20px, env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .rank-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--surface-line);
+    border-radius: 12px;
+    padding: 10px 14px;
+  }
+  .rank-pos {
+    min-width: 26px;
+    text-align: center;
+    font: 700 1rem/1 var(--font-display);
+    color: var(--faint);
+  }
+  .rank-row.top1 .rank-pos { color: #f2c230; }
+  .rank-row.top2 .rank-pos { color: #d7d7d7; }
+  .rank-row.top3 .rank-pos { color: #c98a4b; }
+  .rank-info { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .rank-score { font: 700 1.05rem/1 var(--font-display); color: var(--card-face); }
+  .rank-meta { font: 500 0.75rem/1 var(--font-body); color: var(--faint); }
+  .rank-empty {
+    text-align: center;
+    color: var(--faint);
+    font: 500 0.85rem var(--font-body);
+    padding: 40px 20px;
+  }
+
+  .bar-bottom {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 18px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(180deg, var(--wood-1), var(--wood-2));
+    border-top: 1px solid rgba(255,255,255,0.1);
+  }
+  .hint-action {
+    background: transparent;
+    border: none;
+    color: #e7d7c2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 6px 8px;
+    min-width: 64px;
+  }
+  .hint-action span { font: 600 0.78rem/1 var(--font-body); white-space: nowrap; }
+  .hint-action svg { width: 26px; height: 26px; stroke: #e7d7c2; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .hint-action:active { color: var(--card-face); }
+  .hint-action:active svg { stroke: var(--card-face); }
+  .hint-action:disabled { opacity: 0.4; }
+
+  .stat-stack { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .stat-stack .stat-score {
+    font: 700 1.25rem/1 var(--font-display);
+    color: var(--gold);
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-stack .stat-sub {
+    font: 500 0.78rem/1 var(--font-body);
+    color: #cbb9a2;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stock {
+    position: relative;
+    background: transparent;
+    border: none;
+    padding: 4px;
+    display: flex;
+    border-radius: 10px;
+  }
+  .stock.hint {
+    animation: spider-stock-glow 0.55s ease-in-out infinite alternate;
+  }
+  @keyframes spider-stock-glow {
+    from { box-shadow: 0 0 0 0 rgba(111, 214, 168, 0.55); background: transparent; }
+    to { box-shadow: 0 0 14px 4px rgba(111, 214, 168, 0.55); background: rgba(111, 214, 168, 0.14); }
+  }
+  .stock-cards { position: relative; width: 50px; height: 40px; display: block; }
+  .stock-card {
+    position: absolute;
+    top: 0; left: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 4px;
+    background:
+      repeating-linear-gradient(45deg, rgba(255,255,255,0.16) 0 2px, transparent 2px 7px),
+      repeating-linear-gradient(-45deg, rgba(255,255,255,0.16) 0 2px, transparent 2px 7px),
+      linear-gradient(135deg, var(--card-back-1), var(--card-back-2));
+    border: 1px solid rgba(255,255,255,0.25);
+    aspect-ratio: 5/7;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tier { transition: none; }
+    .card.deal-in { animation: none; }
+    .collect-fly { transition: none; }
+    .stock.hint { animation: none; background: rgba(111, 214, 168, 0.18); }
+  }
+</style>
+<link rel="stylesheet" href="./spider-theme.css" />
+  <script type="module" crossorigin src="./assets/index-B1wrWWfp.js"></script>
+</head>
+<body>
+  <div id="app">
+    <section id="screen-start" class="screen active">
+      <div class="start-inner">
+        <header class="start-head">
+          <p class="eyebrow">iOS 카드 게임 · 레이아웃 프로토타입</p>
+          <h1>스파이더 솔리테어</h1>
+          <p class="lede">같은 무늬로 K부터 A까지 이어 붙여 여덟 묶음을 모두 걷어내면 승리합니다.</p>
+        </header>
+
+        <div class="tiers">
+          <button class="tier" data-level="easy" data-suits="1" data-label="쉬움 · 1수트">
+            <span class="tier-glyphs"><span class="s-black">♠</span></span>
+            <span class="tier-copy">
+              <span class="tier-name">쉬움</span>
+              <span class="tier-desc">1수트 · 스페이드만 8벌 · 입문용</span>
+            </span>
+            <span class="tier-go">시작</span>
+          </button>
+          <button class="tier" data-level="medium" data-suits="2" data-label="보통 · 2수트">
+            <span class="tier-glyphs"><span class="s-black">♠</span><span class="s-red">♥</span></span>
+            <span class="tier-copy">
+              <span class="tier-name">보통</span>
+              <span class="tier-desc">2수트 · 스페이드 + 하트 · 표준</span>
+            </span>
+            <span class="tier-go">시작</span>
+          </button>
+          <button class="tier" data-level="hard" data-suits="4" data-label="어려움 · 4수트">
+            <span class="tier-glyphs"><span class="s-black">♠</span><span class="s-red">♥</span><span class="s-red">♦</span><span class="s-black">♣</span></span>
+            <span class="tier-copy">
+              <span class="tier-name">어려움</span>
+              <span class="tier-desc">4수트 · 전체 무늬 · 숙련자용</span>
+            </span>
+            <span class="tier-go">시작</span>
+          </button>
+        </div>
+
+        <button class="resume" id="btn-resume" disabled>이어하기 · 저장된 게임 없음</button>
+        <button class="rankings-link" id="btn-rankings">🏆 역대 순위 보기</button>
+      </div>
+    </section>
+
+    <section id="screen-game" class="screen">
+      <header class="nav-bar">
+        <button class="nav-btn" id="btn-back" aria-label="난이도 선택으로 돌아가기">‹ 뒤로</button>
+        <span class="chip" id="chip-level">보통 · 2수트</span>
+        <div class="nav-group">
+          <button class="sound-btn" id="btn-sound" aria-label="효과음 켜기/끄기">
+            <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 5V4L8 9H4Z" /><path id="sound-wave" d="M17 8a6 6 0 0 1 0 8" /></svg>
+          </button>
+          <button class="nav-btn" id="btn-newgame">새 게임</button>
+        </div>
+      </header>
+
+      <div class="deal-row">
+        <span class="stat"><span class="stat-k">시간</span><span class="stat-v" id="stat-time">00:00</span></span>
+        <button class="stock" id="btn-stock" aria-label="스톡에서 카드 배분">
+          <span class="stock-cards" id="stock-cards" aria-hidden="true"></span>
+        </button>
+      </div>
+
+      <main class="tableau" id="tableau"></main>
+
+      <footer class="bar-bottom">
+        <button class="hint-action" id="btn-undo" aria-label="실행 취소" disabled>
+          <svg viewBox="0 0 24 24"><path d="M9 7 4 12l5 5" /><path d="M4 12h11a5 5 0 0 1 0 10h-1" /></svg>
+          <span>실행 취소</span>
+        </button>
+        <div class="stat-stack">
+          <span class="stat-score" id="stat-score">500</span>
+          <span class="stat-sub"><span id="stat-moves">0</span>수</span>
+        </div>
+        <button class="hint-action" id="btn-hint" aria-label="힌트 보기">
+          <svg viewBox="0 0 24 24"><path d="M9 18h6" /><path d="M10 21h4" /><path d="M12 3a6 6 0 0 0-3.6 10.8c.5.4.6.9.6 1.5V16h6v-.7c0-.6.1-1.1.6-1.5A6 6 0 0 0 12 3Z" /></svg>
+          <span>힌트</span>
+        </button>
+      </footer>
+
+      <button class="autocomplete-btn" id="btn-autocomplete" hidden>자동 정리 ▶</button>
+
+      <div class="toast" id="toast"></div>
+
+      <div class="overlay" id="result-overlay" hidden>
+        <div class="overlay-card">
+          <div class="result-icon" id="result-icon">🏆</div>
+          <h2 class="overlay-title" id="result-title">승리!</h2>
+          <div class="overlay-stats">
+            <span class="stat"><span class="stat-k">시간</span><span class="stat-v" id="result-time">00:00</span></span>
+            <span class="stat"><span class="stat-k">이동</span><span class="stat-v" id="result-moves">0</span></span>
+            <span class="stat"><span class="stat-k">점수</span><span class="stat-v" id="result-score">500</span></span>
+          </div>
+          <p class="overlay-best" id="overlay-best" hidden></p>
+          <p class="result-rank" id="result-rank" hidden></p>
+          <div class="overlay-actions">
+            <button class="overlay-btn primary" id="btn-undo-stuck" hidden>한 수 되돌리기</button>
+            <button class="overlay-btn primary" id="btn-retry">같은 난이도로 다시</button>
+            <button class="overlay-btn ghost" id="btn-view-rankings">순위 보기</button>
+            <button class="overlay-btn ghost" id="btn-change-level">난이도 변경</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-rankings" class="screen">
+      <header class="nav-bar">
+        <button class="nav-btn" id="btn-rankings-back" aria-label="시작 화면으로 돌아가기">‹ 뒤로</button>
+        <span class="chip">순위</span>
+        <div class="nav-group"></div>
+      </header>
+      <div class="rank-tabs">
+        <button class="rank-tab active" data-filter="all">전체</button>
+        <button class="rank-tab" data-filter="easy">쉬움</button>
+        <button class="rank-tab" data-filter="medium">보통</button>
+        <button class="rank-tab" data-filter="hard">어려움</button>
+      </div>
+      <div class="rank-list" id="rank-list"></div>
+    </section>
+  </div>
+
+</body>
+</html>

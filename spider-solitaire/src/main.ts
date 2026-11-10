@@ -1215,3 +1215,13 @@ document.addEventListener("visibilitychange", () => {
 });
 
 refreshResumeButton();
+
+// Home-screen install: cache the game so it opens and plays without a connection. Not in
+// the iOS app build (capacitor:// pages can't use service workers, and don't need one).
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {
+      // offline play just won't be available
+    });
+  });
+}
